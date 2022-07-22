@@ -768,7 +768,6 @@ server <- function(input, output, session){
     ## plot heatmap of clustered data
     paletteLength <- 100
     myColor <- colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(paletteLength)
-    print("cluster box 1")
     
     ## Do some formatting of the inputs neccessary for the filter_genes2 function
     direction <- ""
@@ -852,10 +851,8 @@ server <- function(input, output, session){
       
       ##Filters by cluster group and puts them in their own tibbles
       for( i in 1:max(as.numeric(cluster_tbbl[,length(cluster_tbbl[1,])]))){
-        print(max(as.numeric(cluster_tbbl[,length(cluster_tbbl[1,])])))
         clust_name <- paste("clust_", i, sep = "")
         temp_clust <- filter(cluster_tbbl, clusters == i) %>%dplyr::select(-one_of("clusters")) %>% tidyr::gather(.)
-        print(head(temp_clust))
         assign(clust_name, temp_clust)
       }
       plot_list <- list()
@@ -901,10 +898,11 @@ server <- function(input, output, session){
     
     #trying to separate genes for boxplot
     #input_gene <- strsplit(input_gene,",")
+    
+    test_genes <<- count_data()
     for(input_gene in count_data()){
       
       ## Replace the column names of each replicate with the "common names"
-      #print(input_gene)
       goi <- get_geneID(input_gene, gtf, current_fb_ids)
       
       goi_count <- as.data.frame(fbgn_counts)
@@ -923,22 +921,18 @@ server <- function(input, output, session){
       ## Replace the column names of each replicate with the "common names"
       for(i in 1:length(repList2)){
         replace <- grep(repList2[i], colnames(goi_count))
-        #print(replace)
         for(j in replace){
           colnames(goi_count)[j] <- repList2[i]
-          #print(head(goi_count))
         }
       }
 
       ## Do some formatting and summarizing to convert the normalized counts into means and SDs
       
       temp_goi <- tibble::rownames_to_column(as.data.frame(t(goi_count)), "key")
-      #print(head(temp_goi))
       temp_goi$key <- rownames(t(goi_count))
       
       goi_count <- temp_goi
       colnames(goi_count)[2] <- "value"
-      print(head(goi_count))
       grouped_count <- group_by(goi_count, key)
       summ_goi_count <- summarise(grouped_count, mean=mean(value), sd=sd(value), N = sum(!is.na(value)), upper_limit = mean + sd/sqrt(N), lower_limit = mean - sd/sqrt(N))
       summ_goi_count$key <- factor(summ_goi_count$key, levels = sample_data())
@@ -970,12 +964,14 @@ server <- function(input, output, session){
   
   output$fc <- renderPlot({
     fc_list <- list()
+    
+    test_fc <<- fc_data()
     for(input_gene in fc_data()){
       
       goi <- get_geneID(input_gene, gtf, current_fb_ids)
-      #goi_logfc <- all_logfc[goi, ]
+      
+      ## broken because at some point all_logfc had fbgns in a column called "gene_id"
       goi_logfc <- dplyr::filter(all_logfc, gene_id == goi)
-      print(goi_logfc)
       
       temp_fc <- vector('numeric')
       for(i in fc_sample_data()){

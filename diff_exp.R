@@ -69,10 +69,10 @@ if(!exists("choices")){
   while(i <= length(sample_names)){
     j<-1
     while(j <= length(sample_names)){ 
-      if(sample_names[i]!=sample_names[j] & !exists(paste(sample_names[j],"_vs_",sample_names[i],"_resOrdered",sep = ""))){
+      #if(sample_names[i]!=sample_names[j] & !exists(paste(sample_names[j],"_vs_",sample_names[i],"_resOrdered",sep = ""))){
         
         ##Important: Checks for and only does one of two comparisons, unless uncommented out and the above is commented out.    
-      #if(sample_names[i]!=sample_names[j]){
+      if(sample_names[i]!=sample_names[j]){
         
         comp <-paste(sample_names[i], "_vs_",sample_names[j], sep = "")
         comparisons <- c(comparisons, comp)

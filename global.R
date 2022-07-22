@@ -53,10 +53,10 @@ first_name <- paste(log2fc_samples[1], "_Log2FC", sep="")
 all_logfc <-eval(as.symbol(first_name))
 for (i in 2:length(log2fc_samples)) {
   i_name <- paste(log2fc_samples[i], "_Log2FC", sep="")
-  if(!exists("i_name")){
-    i_data <- eval(as.symbol(i_name))
-    all_logfc <- dplyr::left_join(all_logfc, i_data, by = "rowname")
-  }
+  #if(!exists("i_name")){
+  i_data <- eval(as.symbol(i_name))
+  all_logfc <- dplyr::left_join(all_logfc, i_data, by = "rowname")
+  #}
 }
 all_logfc <- tibble::column_to_rownames(all_logfc, var = "rowname")
 print("Prepared Log2 Fold Change tables")
@@ -82,8 +82,8 @@ if(!exists("geneSelector")){
 
 ## Make the norm_counts
 if(!exists("norm_counts")){
-vsd <- vst(dds, blind=TRUE)
-norm_counts <- assay(vsd)
+  vsd <- vst(dds, blind=TRUE)
+  norm_counts <- assay(vsd)
 }
 
 ## Make annotated fbgn_counts vectors
