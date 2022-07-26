@@ -1,7 +1,5 @@
 # RNA-seq Analysis
-Author: Markus Nevil
-Author: Aaron Crain
-Author: Tyler Gibson
+Authors: Markus Nevil, Aaron Crain, Tyler Gibson
 
 # Quick Start:
 ## Run Paired-end RNA-seq Pipeline
