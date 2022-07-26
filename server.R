@@ -18,13 +18,13 @@ server <- function(input, output, session){
   box_order_data <- eventReactive(input$cluster_go, {unlist(strsplit(input$box_order_list, split=", "))})
   
   ## Clustering reactives
-  #cluster_by_data <- eventReactive(input$cluster_go, {input$cluster_by})
   cluster_method_data <- eventReactive(input$cluster_go, {input$cluster_method})
   cluster_n_data <- eventReactive(input$cluster_go, {input$cluster_n})
   direction_of_change_data <- eventReactive(input$cluster_go, {input$direction_of_change})
   direction_bg_change_data <- eventReactive(input$cluster_go, {input$direction_bg_change})
   cluster_sample_data <- eventReactive(input$cluster_go, {unlist(strsplit(input$cluster_sample_list, split=", "))})
   diff_only_data <- eventReactive(input$cluster_go, {input$diff_only})
+  
   #Specifically for GO analysis of clusters
   cluster_GO_data <- eventReactive(input$cluster_go, {unlist(strsplit(input$cluster_GO_list, split = ", "))})
   cluster_bg_data <- eventReactive(input$cluster_go, {unlist(strsplit(input$cluster_bg_list, split = ", "))})
@@ -434,12 +434,16 @@ server <- function(input, output, session){
       }
       ## Perform kmeans clustering
       if (cluster_method_data() == "kmeans") {
-        set.seed(20)
-        kc <- kmeans(cluster_data, centers=cluster_n_data(), nstart = 1000, iter.max = 20)
-        kClusters <- as.factor(x = kc$cluster)
-        clusters <- data.frame(clusters = kClusters)
-        clusters <- tibble::rownames_to_column(clusters, var = "gene_id")
-        cluster_data$clusters <- clusters$clusters
+        
+        cluster_data <- perform_kc(what = "cd", cluster_n = cluster_n_data(), input_counts = cluster_data)
+        kc <- perform_kc(what = "kc", cluster_n = cluster_n_data(), input_counts = cluster_data) 
+        
+        # set.seed(20)
+        # kc <- kmeans(cluster_data, centers=cluster_n_data(), nstart = 1000, iter.max = 20)
+        # kClusters <- as.factor(x = kc$cluster)
+        # clusters <- data.frame(clusters = kClusters)
+        # clusters <- tibble::rownames_to_column(clusters, var = "gene_id")
+        # cluster_data$clusters <- clusters$clusters
       }
       
       #### PERFORM PLOTTING
@@ -487,9 +491,6 @@ server <- function(input, output, session){
         ph_color <<- myColor
         ph_rows <<- cluster_n_data()
         ph_anno <<- cluster_info
-        
-        
-        #### https://github.com/talgalili/heatmaply/issues/160
         
         #rownames(cluster_info) <- make.unique(cluster_info[["clusters"]])
         #annotation <- cluster_info["clusters"]
@@ -621,13 +622,16 @@ server <- function(input, output, session){
       }
       ## Perform kmeans clustering
       if (cluster_method_data() == "kmeans") {
-        set.seed(20)
-        kc <- kmeans(cluster_data, centers=cluster_n_data(), nstart = 1000, iter.max = 20)
-        kClusters <- as.factor(x = kc$cluster)
-        clusters <- data.frame(clusters = kClusters)
-        clusters <- tibble::rownames_to_column(clusters, var = "gene_id")
-        cluster_data$clusters <- clusters$clusters
-        #cluster_table <- cluster_data
+        
+        cluster_data <- perform_kc(what = "cd", cluster_n = cluster_n_data(), input_counts = cluster_data)
+        kc <- perform_kc(what = "kc", cluster_n = cluster_n_data(), input_counts = cluster_data) 
+        
+        # set.seed(20)
+        # kc <- kmeans(cluster_data, centers=cluster_n_data(), nstart = 1000, iter.max = 20)
+        # kClusters <- as.factor(x = kc$cluster)
+        # clusters <- data.frame(clusters = kClusters)
+        # clusters <- tibble::rownames_to_column(clusters, var = "gene_id")
+        # cluster_data$clusters <- clusters$clusters
       }
       
       results_table <- tibble::rownames_to_column(cluster_data, var = "gene_id")
@@ -826,11 +830,15 @@ server <- function(input, output, session){
       
       ## Perform kmeans clustering
       if (cluster_method_data() == "kmeans") {
-        set.seed(20)
-        kc <- kmeans(cluster_data, centers=cluster_n_data(), nstart = 1000, iter.max = 20)
-        kClusters <- as.factor(x = kc$cluster)
-        clusters <- data.frame(clusters = kClusters)
-        clusters <- tibble::rownames_to_column(clusters, var = "gene_id")
+        cluster_data <- perform_kc(what = "cd", cluster_n = cluster_n_data(), input_counts = cluster_data)
+        kc <- perform_kc(what = "kc", cluster_n = cluster_n_data(), input_counts = cluster_data) 
+        
+        # set.seed(20)
+        # kc <- kmeans(cluster_data, centers=cluster_n_data(), nstart = 1000, iter.max = 20)
+        # kClusters <- as.factor(x = kc$cluster)
+        # clusters <- data.frame(clusters = kClusters)
+        # clusters <- tibble::rownames_to_column(clusters, var = "gene_id")
+        # cluster_data$clusters <- clusters$clusters
       }
       
       ## Get the common names of all the replicates

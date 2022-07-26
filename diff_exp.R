@@ -1,15 +1,15 @@
 
 ## load necessary packages
-library(DESeq2, warn.conflicts = F, quietly = T)
-library(ggplot2, warn.conflicts = F, quietly = T)
-library(gridExtra, warn.conflicts = F, quietly = T)
-library(dplyr, warn.conflicts = F, quietly = T)
+# library(DESeq2, warn.conflicts = F, quietly = T)
+# library(ggplot2, warn.conflicts = F, quietly = T)
+# library(gridExtra, warn.conflicts = F, quietly = T)
+# library(dplyr, warn.conflicts = F, quietly = T)
 
 ## set the working directory to current folder
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 ## specify script containing function definitions
-source(file = "./extra_functions.R")
+# source(file = "./extra_functions.R")
 
 ## import the sample sheet output by snakemake pipeline
 if(!exists("sample_table")){
@@ -19,7 +19,6 @@ print("Sample sheet imported.")
 
 ## import count table and remove the first 5 columns that contain annotation information, leaving only the read counts
 if(!exists("count_table")){
-  #count_table <- read.table("./input_data/featureCounts.txt", sep= "\t", header=TRUE, row.names = 1)
   count_table <- readr::read_tsv("./input_data/featureCounts.txt", comment="#")
   count_table <- count_table %>% tibble::column_to_rownames("Geneid")
   gene_counts <- as.matrix(count_table[,6:ncol(count_table)])
@@ -207,10 +206,13 @@ for (i in comparisons) {
   assign(new_name, new_table)
   fn <- paste("./output_data/", new_name, sep = "")
   #print(fn)
-  head(new_table)
+  #head(new_table)
   write.table(new_table, file=fn, sep="\t", row.names = FALSE)
   
 }
+rm(tmp)
+rm(new_table)
+
 print("Significance tables saved to ./output_data/ directory.")
 
 

@@ -1,26 +1,53 @@
 #if(!exists(startUp)){
-library(DESeq2, warn.conflicts = F, quietly = T)
-library(ggplot2, warn.conflicts = F, quietly = T)
-library(gridExtra, warn.conflicts = F, quietly = T)
-library(RColorBrewer, warn.conflicts = F, quietly = T)
-library(pheatmap, warn.conflicts = F, quietly = T)
-library(dplyr, warn.conflicts = F, quietly = T)
-library(colorspace, warn.conflicts = F, quietly = T)
-library(gplots, warn.conflicts = F, quietly = T)
-library(DT, warn.conflicts = F, quietly = T)
-library(Gviz, warn.conflicts = F, quietly = T)
-library(GenomicRanges, warn.conflicts = F, quietly = T)
-library(TxDb.Dmelanogaster.UCSC.dm6.ensGene, warn.conflicts = F, quietly = T)
-library(Rsamtools, warn.conflicts = F, quietly = T)
-library(GenomicFeatures, warn.conflicts = F, quietly = T)
-library(heatmaply, warn.conflicts = F, quietly = T)
-library(ggrepel, warn.conflicts = F, quietly = T)
-library(Rcpp, warn.conflicts = F, quietly = T)
-library(clusterProfiler, warn.conflicts = F, quietly = T)
-library(org.Dm.eg.db, warn.conflicts = F, quietly = T)
 
-#unloadNamespace("shiny")
-library(shiny)
+## List of all CRAN repo packages that are needed (installed and loaded)
+CRANpackages = c("BiocManager", "ggplot2", "gridExtra", "RColorBrewer", "pheatmap",
+                 "dplyr", "colorspace", "gplots", "DT", "heatmaply", "ggrepel", "Rcpp")
+
+## List of all Bioconductor repo packages that are needed (installed and loaded)
+BioCpackages = c("DESeq2", "Gviz","GenomicRanges", "TxDb.Dmelanogaster.UCSC.dm6.ensGene",
+                 "Rsamtools", "clusterProfiler", "org.Dm.eg.db")
+
+CRANpackage.check <- lapply(
+  CRANpackages,
+  FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+      install.packages(x, dependencies = TRUE)
+      library(x, character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)
+    }
+  }
+)
+
+BioCpackage.check <- lapply(
+  BioCpackages,
+  FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+      BiocManager::install(x)
+      library(x, character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)
+    }
+  }
+)
+
+# library(DESeq2, warn.conflicts = F, quietly = T)
+# library(ggplot2, warn.conflicts = F, quietly = T)
+# library(gridExtra, warn.conflicts = F, quietly = T)
+# library(RColorBrewer, warn.conflicts = F, quietly = T)
+# library(pheatmap, warn.conflicts = F, quietly = T)
+# library(dplyr, warn.conflicts = F, quietly = T)
+# library(colorspace, warn.conflicts = F, quietly = T)
+# library(gplots, warn.conflicts = F, quietly = T)
+# library(DT, warn.conflicts = F, quietly = T)
+# library(Gviz, warn.conflicts = F, quietly = T)
+# library(GenomicRanges, warn.conflicts = F, quietly = T)
+# library(TxDb.Dmelanogaster.UCSC.dm6.ensGene, warn.conflicts = F, quietly = T)
+# library(Rsamtools, warn.conflicts = F, quietly = T)
+# library(GenomicFeatures, warn.conflicts = F, quietly = T)
+# library(heatmaply, warn.conflicts = F, quietly = T)
+# library(ggrepel, warn.conflicts = F, quietly = T)
+# library(Rcpp, warn.conflicts = F, quietly = T)
+# library(clusterProfiler, warn.conflicts = F, quietly = T)
+# library(org.Dm.eg.db, warn.conflicts = F, quietly = T)
+# library(shiny)
 
 ## specify source file containing all function calls
 source(file = "./extra_functions.R")
@@ -28,14 +55,11 @@ source(file = "./extra_functions.R")
 ## Run the DESeq2 pipeline
 source(file = "./diff_exp.R")
 
-#message = FALSE
-
 print("Libraries loaded and files sourced.")
 
 ## Load pre-computed DESeq2 data
 #print("trying to load RData")
 #load(file = "./output_data/CRY2_shiny.RData")
-#print("Loaded")
 
 #Make the individual log2FC tables
 log2fc_samples <-comparisons
@@ -63,9 +87,9 @@ print("Prepared Log2 Fold Change tables")
 
 if(!exists("geneSelector")){
   temp_selected <- dplyr::select(gtf_genes, gene_symbol, gene_id)
-  temp_selected_fixed <- dplyr::left_join(tibble::rownames_to_column(all_logfc), temp_selected, by = c("rowname" = "gene_symbol"))
-  colnames(temp_selected_fixed)[1] <- "gene_symbol"
-  all_logfc <- temp_selected_fixed
+  all_logfc <- dplyr::left_join(tibble::rownames_to_column(all_logfc), temp_selected, by = c("rowname" = "gene_symbol"))
+  colnames(all_log_fc)[1] <- "gene_symbol"
+
   
   for(i in 1:nrow(all_logfc)){
     if(is.na(all_logfc$gene_id[i])){
@@ -78,6 +102,7 @@ if(!exists("geneSelector")){
     }
   }
   geneSelector <- TRUE
+  rm(temp_selected)
 }
 
 ## Make the norm_counts

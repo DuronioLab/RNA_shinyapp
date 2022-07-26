@@ -5,14 +5,14 @@ perform_hc <- function(what = "hc", cluster_n = 3, input_counts = NA){
   
   # If no specific counts have been input, just take the norm_counts
   suppressWarnings(
-  if(is.na(input_counts)){
-    norm_counts_clust <- norm_counts
-    norm_counts_clust <- as.data.frame(norm_counts_clust)
-    cluster_data <- norm_counts_clust
-  }else{
-    norm_counts_clust <- as.data.frame(input_counts)
-    cluster_data <- norm_counts_clust
-  }
+    if(is.na(input_counts)){
+      norm_counts_clust <- norm_counts
+      norm_counts_clust <- as.data.frame(norm_counts_clust)
+      cluster_data <- norm_counts_clust
+    }else{
+      norm_counts_clust <- as.data.frame(input_counts)
+      cluster_data <- norm_counts_clust
+    }
   )
   ## compute distance matrix
   sampleDists <- dist(cluster_data)
@@ -35,11 +35,33 @@ perform_hc <- function(what = "hc", cluster_n = 3, input_counts = NA){
 
 
 ## Perform k-means clustering
-
-
-
-
-
+perform_kc <- function(what = "kc", cluster_n = 3, input_counts = NA){
+  
+  # If no specific counts have been input, just take the norm_counts
+  suppressWarnings(
+    if(is.na(input_counts)){
+      norm_counts_clust <- norm_counts
+      norm_counts_clust <- as.data.frame(norm_counts_clust)
+      cluster_data <- norm_counts_clust
+    }else{
+      norm_counts_clust <- as.data.frame(input_counts)
+      cluster_data <- norm_counts_clust
+    }
+  )
+  
+  set.seed(20)
+  kc <- kmeans(cluster_data, centers=cluster_n, nstart = 1000, iter.max = 20)
+  kClusters <- as.factor(x = kc$cluster)
+  clusters <- data.frame(clusters = kClusters)
+  clusters <- tibble::rownames_to_column(clusters, var = "gene_id")
+  cluster_data$clusters <- clusters$clusters
+  if(what == "kc"){
+    return(kc)
+  }else{
+    return(cluster_data)
+  }
+  
+}
 
 
 
