@@ -17,8 +17,19 @@ server <- function(input, output, session){
   plot_which_data <- eventReactive(input$cluster_go, {unlist(strsplit(input$plot_which_list, split=", "))})
   box_order_data <- eventReactive(input$cluster_go, {unlist(strsplit(input$box_order_list, split=", "))})
   
+  ## Log2 FC heatmap reactives
+  fc_heat_comp_data <- eventReactive(input$fc_heat_go, {input$fc_heat_comp})
+  fc_heat_sample_sort_data <- eventReactive(input$fc_heat_go, {input$fc_heat_sample_sort})
+  fc_cluster_n_data <- eventReactive(input$fc_heat_go, {input$fc_cluster_n})
+  fc_heat_method_data <- eventReactive(input$fc_heat_go, {input$fc_heat_method})
+  fc_sort_sample_list_data <- eventReactive(input$fc_heat_go, {input$fc_sort_sample_list})
+  fc_heat_diff_only_data <- eventReactive(input$fc_heat_go, {input$fc_heat_diff_only})
+  fc_heat_sample_list_data <- eventReactive(input$fc_heat_go, {unlist(strsplit(input$fc_heat_sample_list, split=", "))})
+  
+  
   ## Clustering reactives
   cluster_method_data <- eventReactive(input$cluster_go, {input$cluster_method})
+  # cluster_by_data <- eventReactive(input$cluster_go, {input$cluster_by})
   cluster_n_data <- eventReactive(input$cluster_go, {input$cluster_n})
   direction_of_change_data <- eventReactive(input$cluster_go, {input$direction_of_change})
   direction_bg_change_data <- eventReactive(input$cluster_go, {input$direction_bg_change})
@@ -162,7 +173,7 @@ server <- function(input, output, session){
   ## Gene Ontology tables
   output$gene_ont <- DT::renderDataTable({
     withProgress(message = "Generating Gene Ontology Report", value = 0, {
-
+      
       direction <- ""
       if(GO_direction() == "Up"){
         direction <- "up"
@@ -184,7 +195,7 @@ server <- function(input, output, session){
       if(GO_bg_direction() == "Both"){
         bg_direction <- "none"
       }
-
+      
       incProgress(0.25, detail = "Importing gene sets")
       
       #Grab the filtered gene list
@@ -229,7 +240,77 @@ server <- function(input, output, session){
     
   })
   
-  
+  ## Log2 Fold change heatmaps
+  output$fc_heat <- renderPlot({
+    print("hello")
+    withProgress(message = "Making Log2FC heatmap", value = 0, {
+      # 
+      # fc_heat_comp_data <- eventReactive(input$fc_heat_go, {input$fc_heat_comp})
+      # fc_heat_sample_sort_data <- eventReactive(input$fc_heat_go, {input$fc_heat_sample_sort})
+      # fc_cluster_n_data <- eventReactive(input$fc_heat_go, {input$fc_cluster_n})
+      # fc_heat_method_data <- eventReactive(input$fc_heat_go, {input$fc_heat_method})
+      # fc_sort_sample_list_data <- eventReactive(input$fc_heat_go, {input$fc_sort_sample_list})
+      # fc_heat_diff_only_data <- eventReactive(input$fc_heat_go, {input$fc_heat_diff_only})
+      # fc_heat_sample_list_data <- eventReactive(input$fc_heat_go, {unlist(strsplit(input$fc_heat_sample_list, split=", "))})
+      
+      fc_n <<- fc_cluster_n_data()
+      
+      controlComp <- paste("vs_",fc_heat_comp_data(), sep = "")
+      
+      #Select comparisons for specific control
+      selected_L2FC <- select(tibble::column_to_rownames(all_logfc, var = "gene_symbol"), contains(controlComp), )
+      global_sL2FC0 <<- selected_L2FC
+      
+      #Keep only significant genes
+      selected_L2FC_samples <- colnames(selected_L2FC)
+      selected_L2FC_samples <- sub("_Log2FC*", "", x = selected_L2FC_samples)
+      keep_genes <- filter_genes2(samples = selected_L2FC_samples, 
+                                  diff_genes_only = fc_heat_diff_only_data(),
+                                  change_direction = "none")
+      
+      selected_L2FC <- selected_L2FC[rownames(selected_L2FC) %in% keep_genes,]
+      global_sL2FC1 <<- selected_L2FC
+      
+      incProgress(0.2, detail = "Performing clustering")
+      #Run clustering
+      cluster_data <- perform_hc(input_counts=selected_L2FC, cluster_n=fc_cluster_n_data(), what="anything")
+      
+      
+      #Shorten column names
+      controlComp_cols <- colnames(selected_L2FC)
+      controlComp_cols_short <- vector()
+      for (i in controlComp_cols){
+        controlComp_cols_short <- append(controlComp_cols_short,str_split(i,"_vs_")[[1]][1])
+      }
+      colnames(selected_L2FC) <- controlComp_cols_short
+      global_sL2FC2 <<- selected_L2FC
+      #Pivot logFC data frames for use in ggplot
+      cluster_data <- tibble::rownames_to_column(cluster_data,var = "geneid")
+      cluster_data_long <- tidyr::pivot_longer(cluster_data,names_to = "comparison",values_to = "log2FC",
+                                               cols = all_of(controlComp_cols))
+      selected_L2FC <- tibble::rownames_to_column(selected_L2FC,var = "geneid")
+      cluster_data_long <- left_join(cluster_data_long,selected_L2FC,by="geneid")
+      global_sL2FC3 <<- cluster_data_long 
+
+      incProgress(0.2, detail = "Plotting heatmap")
+      #Plot heatmaps using ggplot
+      #Order genes based on comparison
+      if (fc_heat_sample_sort_data() == FALSE){
+        fc_heatmap <<- ggplot(cluster_data_long,aes(comparison,reorder(geneid,fc_sort_sample_list_data()),fill=log2FC)) + 
+          geom_tile() + scale_fill_gradient2(low="blue",mid="white",high="red") +
+          theme(axis.text.y = element_blank(),axis.ticks.y=element_blank())
+      }
+      #Order genes based on cluster
+      if (fc_heat_sample_sort_data() == TRUE){
+        fc_heatmap <<- ggplot(cluster_data_long,aes(comparison,reorder(geneid,as.numeric(clusters)))) + 
+          geom_tile(aes(fill=log2FC)) + scale_fill_gradient2(low="blue",mid="white",high="red") +
+          theme(axis.text.y = element_blank(),axis.ticks.y=element_blank()) + 
+          geom_ysidebar(aes(yfill=clusters,ycolor=clusters)) + ggside(y.pos = "left")
+      }
+      fc_heatmap
+      incProgress(0.2, detail = "Finished!")
+    })
+  })
   
   ##Sashimi plots
   output$browser <- renderPlot({
@@ -598,40 +679,22 @@ server <- function(input, output, session){
       
       #### PERFORM CLUSTERING
       
-      incProgress(0.66, detail = "Beginning Clustering")
+      incProgress(0.2, detail = "Beginning Clustering")
+      
       ## Perform heirarchical clustering
       if (cluster_method_data() == "heirarchical") {
         
         cluster_data <- perform_hc(what = "cd", cluster_n = cluster_n_data())
         hc <- perform_hc(what = "hc", cluster_n = cluster_n_data()) 
         
-        # 
-        # ## compute distance matrix
-        # sampleDists <- dist(cluster_data)
-        # 
-        # ## perform hierarchecal clustering
-        # hc <- hclust(sampleDists)
-        # 
-        # ## extract cluster assignments for each gene
-        # hc.cutree <- cutree(hc, cluster_n_data())
-        # clusters <- data.frame(clusters = as.factor(hc.cutree))
-        # print(head(clusters))
-        # clusters <- tibble::rownames_to_column(clusters, var = "gene_id")
-        # cluster_data$clusters <- clusters$clusters
-        #cluster_table <- cluster_data
       }
+      
       ## Perform kmeans clustering
       if (cluster_method_data() == "kmeans") {
         
         cluster_data <- perform_kc(what = "cd", cluster_n = cluster_n_data(), input_counts = cluster_data)
         kc <- perform_kc(what = "kc", cluster_n = cluster_n_data(), input_counts = cluster_data) 
         
-        # set.seed(20)
-        # kc <- kmeans(cluster_data, centers=cluster_n_data(), nstart = 1000, iter.max = 20)
-        # kClusters <- as.factor(x = kc$cluster)
-        # clusters <- data.frame(clusters = kClusters)
-        # clusters <- tibble::rownames_to_column(clusters, var = "gene_id")
-        # cluster_data$clusters <- clusters$clusters
       }
       
       results_table <- tibble::rownames_to_column(cluster_data, var = "gene_id")
@@ -801,7 +864,7 @@ server <- function(input, output, session){
       
       ## convert norm_counts to data frame
       norm_counts_clust <- as.data.frame(norm_counts_clust)
-
+      
       #### PERFORM CLUSTERING
       
       incProgress(0.5, detail = "Beginning Clustering")
@@ -843,7 +906,7 @@ server <- function(input, output, session){
       
       ## Get the common names of all the replicates
       incProgress(0.2, detail = "Format Clustering")
-
+      
       ## Using the clustered data, get the mean of each row (gene) in each replicate group
       tibbleList <- list()
       for (i in repList2){
@@ -853,7 +916,7 @@ server <- function(input, output, session){
         assign(i, temp_mean)
         tibbleList <- list(tibbleList, temp_mean)
       }
-    
+      
       ## Combine individual tibbles plus the cluster column from the original clustered dataframe
       cluster_tbbl <- bind_cols(tibbleList, clusters[2])
       
@@ -922,10 +985,10 @@ server <- function(input, output, session){
       for(i in sample_data()){
         test2[length(test2)+1:length(grep(i, colnames(goi_count)))] <- grep(i, colnames(goi_count))
       }
-
+      
       goi_count <- dplyr::filter(goi_count, gene_id == goi)
       goi_count <- dplyr::select(goi_count, test2)
-
+      
       ## Replace the column names of each replicate with the "common names"
       for(i in 1:length(repList2)){
         replace <- grep(repList2[i], colnames(goi_count))
@@ -933,7 +996,7 @@ server <- function(input, output, session){
           colnames(goi_count)[j] <- repList2[i]
         }
       }
-
+      
       ## Do some formatting and summarizing to convert the normalized counts into means and SDs
       
       temp_goi <- tibble::rownames_to_column(as.data.frame(t(goi_count)), "key")
@@ -944,7 +1007,7 @@ server <- function(input, output, session){
       grouped_count <- group_by(goi_count, key)
       summ_goi_count <- summarise(grouped_count, mean=mean(value), sd=sd(value), N = sum(!is.na(value)), upper_limit = mean + sd/sqrt(N), lower_limit = mean - sd/sqrt(N))
       summ_goi_count$key <- factor(summ_goi_count$key, levels = sample_data())
-
+      
       ## Make the plot title
       title <- bquote(italic(.(input_gene))~' Log'[2]*' Counts')
       
@@ -1043,6 +1106,12 @@ server <- function(input, output, session){
     test_res <- gsub("_resOrdered","", test_res)
     test_res <- gsub("_", " ", test_res)
     print(test_res)
+  })
+  
+  ##PCA plot
+  output$PCA <- renderPlot({
+    # Created in diff_exp
+    pca_out
   })
   
   output$volcano <- renderPlot({

@@ -69,8 +69,8 @@ if(!exists("choices")){
     j<-1
     while(j <= length(sample_names)){ 
       #if(sample_names[i]!=sample_names[j] & !exists(paste(sample_names[j],"_vs_",sample_names[i],"_resOrdered",sep = ""))){
-        
-        ##Important: Checks for and only does one of two comparisons, unless uncommented out and the above is commented out.    
+      
+      ##Important: Checks for and only does one of two comparisons, unless uncommented out and the above is commented out.    
       if(sample_names[i]!=sample_names[j]){
         
         comp <-paste(sample_names[i], "_vs_",sample_names[j], sep = "")
@@ -210,10 +210,50 @@ for (i in comparisons) {
   write.table(new_table, file=fn, sep="\t", row.names = FALSE)
   
 }
-rm(tmp)
 rm(new_table)
 
 print("Significance tables saved to ./output_data/ directory.")
+
+
+## Prepare the PCA plot
+rld<-rlog(dds2,blind=FALSE)
+intgroup="sample"
+ntop=500
+object=rld
+
+# calculate the variance for each gene
+rv <- rowVars(assay(object))
+
+# select the ntop genes by variance
+select <- order(rv, decreasing=TRUE)[seq_len(min(ntop, length(rv)))]
+
+# perform a PCA on the data in assay(x) for the selected genes
+pca <- prcomp(t(assay(object)[select,]))
+
+# the contribution to the total variance for each component
+percentVar <- pca$sdev^2 / sum( pca$sdev^2 )
+if (!all(intgroup %in% names(colData(object)))) {
+  stop("the argument 'intgroup' should specify columns of colData(dds)")
+}
+intgroup.df <- as.data.frame(colData(object)[, intgroup, drop=FALSE])
+
+# add the intgroup factors together to create a new grouping factor
+group <- if (length(intgroup) > 1) {
+  factor(apply( intgroup.df, 1, paste, collapse=":"))
+} else {
+  colData(object)[[intgroup]]
+}
+# assembly the data for the plot
+d <- data.frame(PC1=pca$x[,1], PC2=pca$x[,2], group=group, intgroup.df, name=colnames(object))
+pc1var <- paste0("(", round(percentVar[1]*100,2), "%", ")")
+pc2var <- paste0("(", round(percentVar[2]*100,2), "%", ")")
+pca_xlab <- paste("PC1", pc1var)
+pca_ylab <- paste("PC2", pc2var)
+d$name <- str_sub(d$name,5,-31)
+pca_out <<- ggplot(d,aes(PC1,PC2,color=sample)) + geom_point(size=5) + theme_minimal(base_size = 14) +
+  labs(x = pca_xlab, y = pca_ylab) + geom_text(aes(label = name),vjust = -1.5)
+
+print("PCA analysis complete")
 
 
 ## Extra functions to grab data for the server.R file

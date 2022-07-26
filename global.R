@@ -2,7 +2,8 @@
 
 ## List of all CRAN repo packages that are needed (installed and loaded)
 CRANpackages = c("BiocManager", "ggplot2", "gridExtra", "RColorBrewer", "pheatmap",
-                 "dplyr", "colorspace", "gplots", "DT", "heatmaply", "ggrepel", "Rcpp")
+                 "dplyr", "colorspace", "gplots", "DT", "heatmaply", "ggrepel", "Rcpp",
+                 "stringr", "ggside")
 
 ## List of all Bioconductor repo packages that are needed (installed and loaded)
 BioCpackages = c("DESeq2", "Gviz","GenomicRanges", "TxDb.Dmelanogaster.UCSC.dm6.ensGene",
@@ -85,10 +86,12 @@ for (i in 2:length(log2fc_samples)) {
 all_logfc <- tibble::column_to_rownames(all_logfc, var = "rowname")
 print("Prepared Log2 Fold Change tables")
 
-if(!exists("geneSelector")){
+
+## Possibly delete later (check if logf2fc heatmaps still works after deleting)
+#if(!exists("geneSelector")){
   temp_selected <- dplyr::select(gtf_genes, gene_symbol, gene_id)
   all_logfc <- dplyr::left_join(tibble::rownames_to_column(all_logfc), temp_selected, by = c("rowname" = "gene_symbol"))
-  colnames(all_log_fc)[1] <- "gene_symbol"
+  colnames(all_logfc)[1] <- "gene_symbol"
 
   
   for(i in 1:nrow(all_logfc)){
@@ -103,7 +106,7 @@ if(!exists("geneSelector")){
   }
   geneSelector <- TRUE
   rm(temp_selected)
-}
+#}
 
 ## Make the norm_counts
 if(!exists("norm_counts")){

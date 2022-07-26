@@ -81,6 +81,61 @@ ui <- shinyUI(navbarPage("RNA-seq Analysis",
                                       plotOutput("browser", width = "auto", height = "auto")
                                     )
                                   )),
+                         tabPanel(title = "Log2 Fold change heatmaps",
+                                  sidebarLayout(
+                                    sidebarPanel(
+                                      width = 3,
+                                      fluidRow(
+                                        column(12, align = "center",
+                                               shiny::tags$b("Log2 Fold Change heatmaps"))),
+                                      br(),
+                                      shiny::tags$p("Select a control comparison and plot a heatmap of all Log2 FC values for each comparison."),
+                                      hr(),
+                                      selectInput(inputId = "fc_heat_comp",
+                                                  label = "What is the control",
+                                                  choices = unique(sample_names),
+                                                  multiple = FALSE),
+                                      
+                                      br(),
+                                      checkboxInput(inputId = "fc_heat_sample_sort",
+                                                    label = "Sort by cluster?( False means sort by sample)",
+                                                    value = TRUE),
+                                      conditionalPanel(
+                                        condition = 'input.fc_heat_sample_sort == TRUE',
+                                        sliderInput(inputId = "fc_cluster_n",
+                                                    label = "Select the number of clusters:",
+                                                    value = 5,
+                                                    min = 1,
+                                                    max = 12),
+                                        selectInput(inputId = "fc_heat_method",
+                                                    label = "Select clustering method:",
+                                                    choices =
+                                                      list("heirarchical", "kmeans"))
+                                      ),
+                                      conditionalPanel(
+                                        condition = 'input.fc_heat_sample_sort == FALSE',
+                                        selectInput(inputId = "fc_sort_sample_list",
+                                                    label = "Sort by sample:",
+                                                    choices = unique(sample_names),
+                                                    multiple = FALSE)
+                                      ),
+                                      radioButtons(inputId = "fc_heat_diff_only",
+                                                   label = "Filter genes that are differentially expressed?",
+                                                   choices = c("Yes", "No"),
+                                                   inline = TRUE),
+                                      selectInput(inputId = "fc_heat_sample_list",
+                                                  label = "Choose samples to plot:",
+                                                  choices = choices,
+                                                  multiple = TRUE),
+                                      br(),
+                                      actionButton(inputId = "fc_heat_go",
+                                                   label = "Update")
+                                      #downloadButton("download_fc_plot", "Download")
+                                    ),
+                                    mainPanel(
+                                      plotOutput("fc_heat")
+                                    )
+                                  )),
                          tabPanel(title = "Clustering Analysis",
                                   sidebarLayout(
                                     sidebarPanel(
@@ -95,7 +150,7 @@ ui <- shinyUI(navbarPage("RNA-seq Analysis",
                                                   label = "Select clustering method:",
                                                   choices =
                                                     list("heirarchical", "kmeans")),
-                                      #selectInput(inputId = "cluster_by",
+                                      # selectInput(inputId = "cluster_by",
                                       #            label = "Select what values to cluster by:",
                                       #            choices =
                                       #              list("counts", "logFC")),
@@ -449,13 +504,13 @@ ui <- shinyUI(navbarPage("RNA-seq Analysis",
                                                        label = "Expression change:",
                                                        choices =
                                                          list("Up", "Down", "Both")
-                                                       )
-                                           ),
+                                           )
+                                    ),
                                     column(4, offset = 0.5,
                                            checkboxInput(inputId = "go_all",
-                                                  label = "Use all other genes as background? (default behavior)",
-                                                  value = TRUE)
-                                           )),
+                                                         label = "Use all other genes as background? (default behavior)",
+                                                         value = TRUE)
+                                    )),
                                   fluidRow(
                                     column(4,
                                            selectInput(inputId = "GO_bg_list",
@@ -511,7 +566,16 @@ ui <- shinyUI(navbarPage("RNA-seq Analysis",
                                            shiny::tags$h2(shiny::tags$b(textOutput("res_table_text")))
                                     )),
                                   DT::dataTableOutput("res_table")
-                         )
+                         ),
                          
+                         
+                         ##### Fix so it isn't just using MA plot stuff ####
+                         tabPanel("PCA plot",
+                                  mainPanel(
+                                    plotOutput("PCA")
+                                  )
+                         )
 )
+
 )
+
