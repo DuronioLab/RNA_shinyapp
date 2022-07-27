@@ -22,9 +22,22 @@ server <- function(input, output, session){
   fc_heat_sample_sort_data <- eventReactive(input$fc_heat_go, {input$fc_heat_sample_sort})
   fc_cluster_n_data <- eventReactive(input$fc_heat_go, {input$fc_cluster_n})
   fc_heat_method_data <- eventReactive(input$fc_heat_go, {input$fc_heat_method})
-  fc_sort_sample_list_data <- eventReactive(input$fc_heat_go, {input$fc_sort_sample_list})
+  fc_sort_sample_list_data <- eventReactive(input$fc_heat_go, {
+    validate(
+      need(if(input$fc_heat_comp != input$fc_sort_sample_list){TRUE}, message="Cannot sort by the control!")
+    )
+    input$fc_sort_sample_list
+  })
   fc_heat_diff_only_data <- eventReactive(input$fc_heat_go, {input$fc_heat_diff_only})
-  fc_heat_sample_list_data <- eventReactive(input$fc_heat_go, {unlist(strsplit(input$fc_heat_sample_list, split=", "))})
+  #fc_heat_sample_list_data <- eventReactive(input$fc_heat_go,{unlist(strsplit(input$fc_heat_sample_list, split=", "))})
+  fc_heat_sample_list_data <- eventReactive(input$fc_heat_go, {
+    validate(
+      need(if(length(unlist(strsplit(input$fc_heat_sample_list, split=", "))) < 2 | !any(input$fc_heat_sample_list %in% grep("All", input$fc_heat_sample_list, value = T))){TRUE}, message="Please select two or more comparisons to plot!")
+    )
+    unlist(strsplit(input$fc_heat_sample_list, split=", "))
+  })
+  
+  #<- eventReactive(input$fc_heat_go, {unlist(strsplit(input$fc_heat_sample_list, split=", "))})
   
   
   ## Clustering reactives
@@ -241,8 +254,7 @@ server <- function(input, output, session){
   })
   
   ## Log2 Fold change heatmaps
-  output$fc_heat <- renderPlot({
-    print("hello")
+  output$fc_heatmap <- renderPlot({
     withProgress(message = "Making Log2FC heatmap", value = 0, {
       # 
       # fc_heat_comp_data <- eventReactive(input$fc_heat_go, {input$fc_heat_comp})
@@ -253,13 +265,22 @@ server <- function(input, output, session){
       # fc_heat_diff_only_data <- eventReactive(input$fc_heat_go, {input$fc_heat_diff_only})
       # fc_heat_sample_list_data <- eventReactive(input$fc_heat_go, {unlist(strsplit(input$fc_heat_sample_list, split=", "))})
       
-      fc_n <<- fc_cluster_n_data()
+      controlComp <<- paste("vs_",fc_heat_comp_data(), sep = "")
       
-      controlComp <- paste("vs_",fc_heat_comp_data(), sep = "")
+      plotThese <<- fc_heat_sample_list_data()
+      #plotThese <- plotThese[! plotThese %in% "All"]
+      #plotThese <<- plotThese[! plotThese %in% grep(controlComp, plotThese, value = T)]
+      #if(any(plotThese %in% grep(controlComp, plotThese, value = T))){print("found one")}
       
       #Select comparisons for specific control
-      selected_L2FC <- select(tibble::column_to_rownames(all_logfc, var = "gene_symbol"), contains(controlComp), )
-      global_sL2FC0 <<- selected_L2FC
+      selected_L2FC_temp <<- select(tibble::column_to_rownames(all_logfc, var = "gene_symbol"), contains(controlComp), )
+      if(!any(plotThese %in% grep("All", plotThese, value = T))){
+        selected_L2FC <- select(selected_L2FC_temp, contains(plotThese), )
+        if(ncol(selected_L2FC) < 2){
+          selected_L2FC <- selected_L2FC_temp
+        }
+      }
+      #global_sL2FC0 <<- selected_L2FC
       
       #Keep only significant genes
       selected_L2FC_samples <- colnames(selected_L2FC)
@@ -269,12 +290,15 @@ server <- function(input, output, session){
                                   change_direction = "none")
       
       selected_L2FC <- selected_L2FC[rownames(selected_L2FC) %in% keep_genes,]
-      global_sL2FC1 <<- selected_L2FC
+      #global_sL2FC1 <<- selected_L2FC
       
       incProgress(0.2, detail = "Performing clustering")
       #Run clustering
-      cluster_data <- perform_hc(input_counts=selected_L2FC, cluster_n=fc_cluster_n_data(), what="anything")
-      
+      if(fc_heat_method_data() == "Heirarchical"){
+        cluster_data <- perform_hc(input_counts=selected_L2FC, cluster_n=fc_cluster_n_data(), what="anything")
+      }else{
+        cluster_data <- perform_kc(input_counts=selected_L2FC, cluster_n=fc_cluster_n_data(), what="anything")
+      }
       
       #Shorten column names
       controlComp_cols <- colnames(selected_L2FC)
@@ -283,31 +307,51 @@ server <- function(input, output, session){
         controlComp_cols_short <- append(controlComp_cols_short,str_split(i,"_vs_")[[1]][1])
       }
       colnames(selected_L2FC) <- controlComp_cols_short
-      global_sL2FC2 <<- selected_L2FC
+      #global_sL2FC2 <<- selected_L2FC
+      
       #Pivot logFC data frames for use in ggplot
       cluster_data <- tibble::rownames_to_column(cluster_data,var = "geneid")
       cluster_data_long <- tidyr::pivot_longer(cluster_data,names_to = "comparison",values_to = "log2FC",
                                                cols = all_of(controlComp_cols))
       selected_L2FC <- tibble::rownames_to_column(selected_L2FC,var = "geneid")
       cluster_data_long <- left_join(cluster_data_long,selected_L2FC,by="geneid")
+      
+      cluster_data_long$comparison <- sub("*_Log2FC", "", x = cluster_data_long$comparison)
+      cluster_data_long$comparison <- gsub("_vs_", "\nvs\n", x = cluster_data_long$comparison)
+      cluster_data_long$comparison <- gsub("_", " ", x = cluster_data_long$comparison)
       global_sL2FC3 <<- cluster_data_long 
-
+      
       incProgress(0.2, detail = "Plotting heatmap")
+      #test_sort <<- fc_heat_sample_sort_data()
+      #test_sortBy <<- fc_sort_sample_list_data()
+      
       #Plot heatmaps using ggplot
       #Order genes based on comparison
       if (fc_heat_sample_sort_data() == FALSE){
-        fc_heatmap <<- ggplot(cluster_data_long,aes(comparison,reorder(geneid,fc_sort_sample_list_data()),fill=log2FC)) + 
-          geom_tile() + scale_fill_gradient2(low="blue",mid="white",high="red") +
+        fc_heatmap <- ggplot(cluster_data_long,aes(comparison,reorder(geneid,.data[[fc_sort_sample_list_data()]]),fill=log2FC)) + 
+          geom_tile() +
+          scale_fill_gradient2(low="blue",mid="white",high="red") +
           theme(axis.text.y = element_blank(),axis.ticks.y=element_blank())
       }
       #Order genes based on cluster
       if (fc_heat_sample_sort_data() == TRUE){
-        fc_heatmap <<- ggplot(cluster_data_long,aes(comparison,reorder(geneid,as.numeric(clusters)))) + 
+        fc_heatmap <- ggplot(cluster_data_long,aes(comparison,reorder(geneid,as.numeric(clusters)))) + 
           geom_tile(aes(fill=log2FC)) + scale_fill_gradient2(low="blue",mid="white",high="red") +
           theme(axis.text.y = element_blank(),axis.ticks.y=element_blank()) + 
-          geom_ysidebar(aes(yfill=clusters,ycolor=clusters)) + ggside(y.pos = "left")
+          geom_ysidebar(aes(yfill=clusters,ycolor=clusters)) + ggside(y.pos = "right")
       }
-      fc_heatmap
+      fc_heatmap <- fc_heatmap +
+        ylab(expression(log[2](Fold~Change)))+
+        xlab("Genotype comparison")
+      # +scale_x_discrete(guide = guide_axis(angle = 45))
+      
+      # fc_heatmap <<- fc_heatmap +
+      #   theme(axis.text.x = element_text(face = "bold",angle = -45, hjust = 1))
+      
+      heatmap_download <<- fc_heatmap
+      
+      print(fc_heatmap)
+
       incProgress(0.2, detail = "Finished!")
     })
   })
@@ -1640,6 +1684,16 @@ server <- function(input, output, session){
     content = function(file) {
       device <- function(..., width, height) grDevices::png(..., res = 300)
       ggsave(file = file, plot = grid.arrange(grobs = cluster_box_image_out), device = "pdf", dpi = 300)
+    }
+  )
+  
+  output$download_fc_heatmap <- downloadHandler(
+    filename = function(){
+      paste("fc_heatmap.pdf", sep="")
+    },
+    content = function(file) {
+      device <- function(..., width, height) grDevices::png(..., res = 300)
+      ggsave(file = file, plot = heatmap_download, device = "pdf", dpi = 300)
     }
   )
   

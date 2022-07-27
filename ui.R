@@ -98,10 +98,10 @@ ui <- shinyUI(navbarPage("RNA-seq Analysis",
                                       
                                       br(),
                                       checkboxInput(inputId = "fc_heat_sample_sort",
-                                                    label = "Sort by cluster?( False means sort by sample)",
+                                                    label = "Sort by cluster?(Unchecked sorts by a sample)",
                                                     value = TRUE),
                                       conditionalPanel(
-                                        condition = 'input.fc_heat_sample_sort == TRUE',
+                                        condition = 'input.fc_heat_sample_sort == 1',
                                         sliderInput(inputId = "fc_cluster_n",
                                                     label = "Select the number of clusters:",
                                                     value = 5,
@@ -110,13 +110,13 @@ ui <- shinyUI(navbarPage("RNA-seq Analysis",
                                         selectInput(inputId = "fc_heat_method",
                                                     label = "Select clustering method:",
                                                     choices =
-                                                      list("heirarchical", "kmeans"))
+                                                      list("Heirarchical", "Kmeans"))
                                       ),
                                       conditionalPanel(
-                                        condition = 'input.fc_heat_sample_sort == FALSE',
+                                        condition = 'input.fc_heat_sample_sort == 0',
                                         selectInput(inputId = "fc_sort_sample_list",
                                                     label = "Sort by sample:",
-                                                    choices = unique(sample_names),
+                                                    choices = rev(unique(sample_names)),
                                                     multiple = FALSE)
                                       ),
                                       radioButtons(inputId = "fc_heat_diff_only",
@@ -125,15 +125,16 @@ ui <- shinyUI(navbarPage("RNA-seq Analysis",
                                                    inline = TRUE),
                                       selectInput(inputId = "fc_heat_sample_list",
                                                   label = "Choose samples to plot:",
-                                                  choices = choices,
+                                                  choices = c("All",choices),
+                                                  selected = "All",
                                                   multiple = TRUE),
                                       br(),
                                       actionButton(inputId = "fc_heat_go",
-                                                   label = "Update")
-                                      #downloadButton("download_fc_plot", "Download")
+                                                   label = "Update"),
+                                      downloadButton("download_fc_heatmap", "Download")
                                     ),
                                     mainPanel(
-                                      plotOutput("fc_heat")
+                                      plotOutput("fc_heatmap")
                                     )
                                   )),
                          tabPanel(title = "Clustering Analysis",

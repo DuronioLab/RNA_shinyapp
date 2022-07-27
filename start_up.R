@@ -15,5 +15,6 @@
 library(shiny, warn.conflicts = F, quietly = T)
 
 wd <- dirname(rstudioapi::getActiveDocumentContext()$path)
+setwd(wd)
 
 runApp()
