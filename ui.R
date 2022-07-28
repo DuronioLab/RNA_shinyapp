@@ -572,11 +572,38 @@ ui <- shinyUI(navbarPage("RNA-seq Analysis",
                          
                          ##### Fix so it isn't just using MA plot stuff ####
                          tabPanel("PCA plot",
-                                  mainPanel(
-                                    plotOutput("PCA")
+                                  sidebarLayout(
+                                    sidebarPanel(
+                                      width = 3,
+                                      fluidRow(
+                                        column(12, align = "center",
+                                               shiny::tags$b("Principle Component"))),
+                                      br(),
+                                      shiny::tags$p("Select PCA to plot the top two principle components of the data, or Scree to plot the values of the top 10 PCs."),
+                                      hr(),
+                                      
+                                      radioButtons(inputId = "PCA_which",
+                                                   label = "Plot to display:",
+                                                   choices = c("PCA plot", "Scree plot"),
+                                                   inline = FALSE),
+                                      br(),
+                                      shiny::tags$p("Excluding too many samples results in errors. Fix by removing from sampleSheet.tsv"),
+                                      selectInput(inputId = "pca_list",
+                                                  label = "Choose samples to exclude:",
+                                                  choices = sample_table$baseName,
+                                                  multiple = TRUE,
+                                                  selectize = TRUE),
+                                      actionButton(inputId = "PCA_go",
+                                                   label = "update")
+                                      ),
+                                    
+                                    mainPanel(
+                                      plotOutput("PCA")
+                                    )
                                   )
                          )
 )
-
 )
+
+
 

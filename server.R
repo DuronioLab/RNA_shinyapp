@@ -4,6 +4,16 @@ server <- function(input, output, session){
   
   #outputOptions(output, "color_check", suspendWhenHidden = FALSE)
   #observe(input$v_gene_size)
+  ## PCA and Scree plot
+  PCA_data <- eventReactive(input$PCA_go, {input$PCA_which})
+  pca_list_data <- eventReactive(input$PCA_go,
+                                 if(length(input$pca_list) == 0){
+                                   return(input$pca_list)
+                                 }else{
+                                   return(unlist(strsplit(input$pca_list, split=", ")))
+                                 }
+  )
+  saved <<- observe({print(input$pca_list)})
   
   ## Gene Ontology reactives
   GO_sample_data <- eventReactive(input$GO_go, {unlist(strsplit(input$GO_sample_list, split=", "))})
@@ -336,22 +346,21 @@ server <- function(input, output, session){
       #Order genes based on cluster
       if (fc_heat_sample_sort_data() == TRUE){
         fc_heatmap <- ggplot(cluster_data_long,aes(comparison,reorder(geneid,as.numeric(clusters)))) + 
-          geom_tile(aes(fill=log2FC)) + scale_fill_gradient2(low="blue",mid="white",high="red") +
+          geom_tile(aes(fill=log2FC)) +
+          scale_fill_gradient2(low="blue",mid="white",high="red") +
           theme(axis.text.y = element_blank(),axis.ticks.y=element_blank()) + 
-          geom_ysidebar(aes(yfill=clusters,ycolor=clusters)) + ggside(y.pos = "right")
+          geom_ysidebar(aes(yfill=clusters,ycolor=clusters)) +
+          ggside(y.pos = "right")
       }
       fc_heatmap <- fc_heatmap +
         ylab(expression(log[2](Fold~Change)))+
         xlab("Genotype comparison")
-      # +scale_x_discrete(guide = guide_axis(angle = 45))
       
-      # fc_heatmap <<- fc_heatmap +
-      #   theme(axis.text.x = element_text(face = "bold",angle = -45, hjust = 1))
       
       heatmap_download <<- fc_heatmap
       
       print(fc_heatmap)
-
+      
       incProgress(0.2, detail = "Finished!")
     })
   })
@@ -1155,7 +1164,85 @@ server <- function(input, output, session){
   ##PCA plot
   output$PCA <- renderPlot({
     # Created in diff_exp
-    pca_out
+    test_pca <<- PCA_data()
+    
+    # Get the indexes of the samples that need to be removed
+    exclude <<- pca_list_data()
+    
+    if(sum(nchar(exclude)) > 0){
+      ex <<- lapply(paste(exclude,collapse="|"), grep, rownames(colData(dds2)))
+      dds2_ex <- dds2[,-unlist(ex)]
+    }else{
+      dds2_ex <- dds2
+    }
+    object <-vst(dds2_ex,blind=FALSE)
+    intgroup="sample"
+    ntop=500
+    
+    # calculate the variance for each gene
+    rv <- rowVars(assay(object))
+    # select the ntop genes by variance
+    select <- order(rv, decreasing=TRUE)[seq_len(min(ntop, length(rv)))]
+    # perform a PCA on the data in assay(x) for the selected genes
+    pca <- prcomp(t(assay(object)[select,]))
+    # the contribution to the total variance for each component
+    percentVar <- pca$sdev^2 / sum( pca$sdev^2 )
+    if (!all(intgroup %in% names(colData(object)))) {
+      stop("the argument 'intgroup' should specify columns of colData(dds)")
+    }
+    intgroup.df <- as.data.frame(colData(object)[, intgroup, drop=FALSE])
+    # add the intgroup factors together to create a new grouping factor
+    group <- if (length(intgroup) > 1) {
+      factor(apply( intgroup.df, 1, paste, collapse=":"))
+    } else {
+      colData(object)[[intgroup]]
+    }
+    # assembly the data for the PCA plot
+    d <- data.frame(PC1=pca$x[,1], PC2=pca$x[,2], group=group, intgroup.df, name=colnames(object))
+    pc1var <- paste0("(", round(percentVar[1]*100,2), "%", ")")
+    pc2var <- paste0("(", round(percentVar[2]*100,2), "%", ")")
+    pca_xlab <- paste("PC1", pc1var)
+    pca_ylab <- paste("PC2", pc2var)
+    
+    ##only for my test dataset
+    #d$name <- gsub("-", "_", d$name)
+    
+    #This needs to be changed for future
+    #d$name <- sub("_dm6_trim_q5_dupsRemoved.bam$", "", sub("Bam*.","",d$name))
+    
+    d$name <- str_sub(d$name,5,-31)
+    
+    pca_out <<- ggplot(d,aes(PC1,PC2,color=sample)) +
+      geom_point(size=5) +
+      theme_minimal(base_size = 14) +
+      labs(x = pca_xlab, y = pca_ylab) +
+      geom_mark_ellipse(aes(fill = sample,color = sample), expand = unit(0.5,"mm"))
+    
+    # Scree Plot
+    pca_col <- ncol(pca$x)
+    var_explained_df <- data.frame(PC= paste0("PC",1:pca_col),
+                                   var_explained=(pca$sdev)^2/sum((pca$sdev)^2))
+    colors <- rep("#7BAFD4", pca_col)
+    var_explained_df$PC <- factor(var_explained_df$PC, levels = var_explained_df$PC)
+    scree_out <<- ggplot(var_explained_df, aes(x=PC,y=var_explained, group=1, fill = PC))+
+      geom_col()+
+      geom_point(size=4)+
+      geom_line()+
+      theme_minimal(base_size = 14) +
+      scale_fill_manual(values = colors)+
+      labs(x = pca_xlab, y = pca_ylab) +
+      labs(title="Scree plot: PCA on scaled data")+
+      theme(legend.position = "none")
+    
+    
+    
+    
+    if(PCA_data() == "PCA plot"){
+      pca_out
+    }else{
+      scree_out
+    }
+    
   })
   
   output$volcano <- renderPlot({

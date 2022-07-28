@@ -3,7 +3,7 @@
 ## List of all CRAN repo packages that are needed (installed and loaded)
 CRANpackages = c("BiocManager", "ggplot2", "gridExtra", "RColorBrewer", "pheatmap",
                  "dplyr", "readr", "colorspace", "gplots", "DT", "heatmaply", "ggrepel", "Rcpp",
-                 "stringr", "ggside", "stringr", "tidyr", "tibble", "shiny")
+                 "stringr", "ggside", "stringr", "tidyr", "tibble", "shiny", "ggforce")
 
 ## List of all Bioconductor repo packages that are needed (installed and loaded)
 BioCpackages = c("DESeq2", "Gviz","GenomicRanges", "TxDb.Dmelanogaster.UCSC.dm6.ensGene",
