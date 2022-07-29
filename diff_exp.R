@@ -17,6 +17,10 @@ if(!exists("sample_table")){
 }
 print("Sample sheet imported.")
 
+## add in the change to the featurecounts column name (.Aligned.sortedBy.....) Also change
+# the ordering to match sample sheet and feature counts
+
+
 ## import count table and remove the first 5 columns that contain annotation information, leaving only the read counts
 if(!exists("count_table")){
   count_table <- readr::read_tsv("./input_data/featureCounts.txt", comment="#")

@@ -13,7 +13,22 @@ server <- function(input, output, session){
                                    return(unlist(strsplit(input$pca_list, split=", ")))
                                  }
   )
-  saved <<- observe({print(input$pca_list)})
+  #saved <<- observe({print(input$pca_list)})
+  
+  ##Venn diagram reactives
+  
+  venn_sample_list <- eventReactive(input$venn_go, {unlist(strsplit(input$venn_list, split=", "))})
+  
+  # venn_sample_list <- eventReactive(input$venn_go, {
+  #   validate(
+  #     need(if(length(observe({print(input$venn_list)})) < 2){TRUE}, message="You need more than 1 sample!"),
+  #     need(if(length(observe({print(input$venn_list)})) > 4){TRUE}, message="You need less then 5 samples!")
+  #     )
+  #   input$venn_list
+  # })
+  #venny <<- observe({print(input$venn_list, split=", ")})
+  #observe({print(input$venn_list)})
+  
   
   ## Gene Ontology reactives
   GO_sample_data <- eventReactive(input$GO_go, {unlist(strsplit(input$GO_sample_list, split=", "))})
@@ -1410,6 +1425,39 @@ server <- function(input, output, session){
     #input$dimension[2] * 0.75
   })
   
+  output$venn <- renderPlot({
+    
+    venn_list <<- list()
+    vl <- venn_sample_list()
+    
+    if(length(vl) == 1){
+      venn_list <- list(All_Genes = data.frame(gene_symbol = current_fb_ids$current_symbol)$gene_symbol,
+                        sample = rownames_to_column(as.data.frame(get(paste(vl[1], "_resOrdered_sig", sep = ""))), var = "gene_symbol")$gene_symbol
+      )
+    }else if(length(vl) >= 7){
+      length(vl)
+      vl <- vl[-(7:length(vl))]
+    }else{
+      for(i in 1:length(vl)){
+        venn_list[paste(vl[i], sep = "")] <- list(rownames_to_column(as.data.frame(get(paste(vl[i], "_resOrdered_sig", sep = ""))), var = "gene_symbol")$gene_symbol)
+      }
+    }
+    
+    # K20_venn <- list(K20A = rownames_to_column(as.data.frame(germline_l3mbt_mut_vs_soma_l3mbt_mut_resOrdered_sig), var = "gene_symbol")$gene_symbol,
+    # K20R = rownames_to_column(as.data.frame(germline_wt_vs_soma_wt_resOrdered_sig), var = "gene_symbol")$gene_symbol)
+    venn_list <- venn_list %>% Venn() %>% process_data()
+    venn_gg <- ggplot() +
+      geom_sf(aes(fill=count), data = venn_region(venn_list)) +
+      geom_sf(size = 1, color = "black", data = venn_setedge(venn_list), show.legend = F) +
+      geom_sf_text(aes(label = name), data = venn_setlabel(venn_list), size = 4) +
+      geom_sf_label(aes(label=count), fontface = "bold", data = venn_region(venn_list),size = 4) +
+      theme_void() + scale_fill_gradient(low = "#F4FAFE", high = "#4981BF")
+    print(venn_gg)
+    
+    #K20A_R <- intersect(K20A_vs_HWT_resOrdered_sig_final.txt$gene_symbol, K20R_vs_HWT_resOrdered_sig_final.txt$gene_symbol)
+    
+    
+  })
   
   ## MA plot
   output$ma <- renderPlot({

@@ -601,6 +601,30 @@ ui <- shinyUI(navbarPage("RNA-seq Analysis",
                                       plotOutput("PCA")
                                     )
                                   )
+                         ),
+                         tabPanel("Venn Diagrams",
+                                  sidebarLayout(
+                                    sidebarPanel(
+                                      width = 3,
+                                      fluidRow(
+                                        column(12, align = "center",
+                                               shiny::tags$b("Venn Diagrams"))),
+                                      br(),
+                                      shiny::tags$p("Select 2-4 comparisons to compute the venn diagram for all significant genes"),
+                                      br(),
+
+                                      selectizeInput(inputId = "venn_list",
+                                                  label = "Choose comparisons for Venn Diagram",
+                                                  choices = choices,
+                                                  multiple = TRUE),
+                                      actionButton(inputId = "venn_go",
+                                                   label = "update")
+                                    ),
+                                    
+                                    mainPanel(
+                                      plotOutput("venn")
+                                    )
+                                  )
                          )
 )
 )
