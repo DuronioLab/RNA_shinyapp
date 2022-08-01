@@ -622,7 +622,8 @@ ui <- shinyUI(navbarPage("RNA-seq Analysis",
                                     ),
                                     
                                     mainPanel(
-                                      plotOutput("venn")
+                                      plotOutput("venn"),
+                                      DT::dataTableOutput("venn_table")
                                     )
                                   )
                          )

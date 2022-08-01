@@ -1,15 +1,5 @@
-
-## load necessary packages
-# library(DESeq2, warn.conflicts = F, quietly = T)
-# library(ggplot2, warn.conflicts = F, quietly = T)
-# library(gridExtra, warn.conflicts = F, quietly = T)
-# library(dplyr, warn.conflicts = F, quietly = T)
-
 ## set the working directory to current folder
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
-
-## specify script containing function definitions
-# source(file = "./extra_functions.R")
 
 ## import the sample sheet output by snakemake pipeline
 if(!exists("sample_table")){
@@ -30,10 +20,15 @@ if(!exists("count_table")){
   
   ## generate a data frame with information about each sample
   coldata <- as.matrix(sample_table$sample)
+  coldata <- data.frame(sample_table$sample)
   rownames(coldata) <- sample_table$bam
   colnames(coldata) <- c("sample")
 }
 print("Count data imported.")
+
+##Warning: might not work! It should but I've been having issues with it dropping info
+coldata <- coldata[ order(row.names(coldata)),, drop = FALSE]
+gene_counts <- gene_counts[ , order(colnames(gene_counts)), drop = FALSE]
 
 
 ## Perform DESeq2 analysis and save if not already created
@@ -220,75 +215,6 @@ for (i in comparisons) {
 
 
 print("Significance tables saved to ./output_data/ directory.")
-
-
-## Prepare the PCA plot
-# 
-# # Get the indexes of the samples that need to be removed
-# exclude <<- pca_list_data()
-# ex <<- lapply(paste(exclude,collapse="|"), grep, rownames(colData(dds2)))
-# dds2_ex <- dds[,-ex]
-# 
-# object <-vst(dds2_ex,blind=FALSE)
-# intgroup="sample"
-# ntop=500
-# 
-# # calculate the variance for each gene
-# rv <- rowVars(assay(object))
-# # select the ntop genes by variance
-# select <- order(rv, decreasing=TRUE)[seq_len(min(ntop, length(rv)))]
-# # perform a PCA on the data in assay(x) for the selected genes
-# pca <- prcomp(t(assay(object)[select,]))
-# # the contribution to the total variance for each component
-# percentVar <- pca$sdev^2 / sum( pca$sdev^2 )
-# if (!all(intgroup %in% names(colData(object)))) {
-#   stop("the argument 'intgroup' should specify columns of colData(dds)")
-# }
-# intgroup.df <- as.data.frame(colData(object)[, intgroup, drop=FALSE])
-# # add the intgroup factors together to create a new grouping factor
-# group <- if (length(intgroup) > 1) {
-#   factor(apply( intgroup.df, 1, paste, collapse=":"))
-# } else {
-#   colData(object)[[intgroup]]
-# }
-# # assembly the data for the PCA plot
-# d <- data.frame(PC1=pca$x[,1], PC2=pca$x[,2], group=group, intgroup.df, name=colnames(object))
-# pc1var <- paste0("(", round(percentVar[1]*100,2), "%", ")")
-# pc2var <- paste0("(", round(percentVar[2]*100,2), "%", ")")
-# pca_xlab <- paste("PC1", pc1var)
-# pca_ylab <- paste("PC2", pc2var)
-# 
-# ##only for my test dataset
-# #d$name <- gsub("-", "_", d$name)
-# 
-# #This needs to be changed for future
-# #d$name <- sub("_dm6_trim_q5_dupsRemoved.bam$", "", sub("Bam*.","",d$name))
-#      
-# d$name <- str_sub(d$name,5,-31)
-# 
-# pca_out <<- ggplot(d,aes(PC1,PC2,color=sample)) +
-#   geom_point(size=5) +
-#   theme_minimal(base_size = 14) +
-#   labs(x = pca_xlab, y = pca_ylab) +
-#   geom_mark_ellipse(aes(fill = sample,color = sample), expand = unit(0.5,"mm"))
-# 
-# # Scree Plot
-# var_explained_df <- data.frame(PC= paste0("PC",1:10),
-#                                var_explained=(pca$sdev)^2/sum((pca$sdev)^2))
-# colors <- rep("#7BAFD4", 10)
-# var_explained_df$PC <- factor(var_explained_df$PC, levels = var_explained_df$PC)
-# scree_out <<- ggplot(var_explained_df, aes(x=PC,y=var_explained, group=1, fill = PC))+
-#   geom_col()+
-#   geom_point(size=4)+
-#   geom_line()+
-#   theme_minimal(base_size = 14) +
-#   scale_fill_manual(values = colors)+
-#   labs(x = pca_xlab, y = pca_ylab) +
-#   labs(title="Scree plot: PCA on scaled data")+
-#   theme(legend.position = "none")
-
-print("PCA analysis complete")
-
 
 ## Extra functions to grab data for the server.R file
 

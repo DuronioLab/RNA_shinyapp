@@ -1435,13 +1435,15 @@ server <- function(input, output, session){
                         sample = rownames_to_column(as.data.frame(get(paste(vl[1], "_resOrdered_sig", sep = ""))), var = "gene_symbol")$gene_symbol
       )
     }else if(length(vl) >= 7){
-      length(vl)
+      #length(vl)
       vl <- vl[-(7:length(vl))]
     }else{
       for(i in 1:length(vl)){
         venn_list[paste(vl[i], sep = "")] <- list(rownames_to_column(as.data.frame(get(paste(vl[i], "_resOrdered_sig", sep = ""))), var = "gene_symbol")$gene_symbol)
       }
     }
+    
+    saved <<- venn_list
     
     # K20_venn <- list(K20A = rownames_to_column(as.data.frame(germline_l3mbt_mut_vs_soma_l3mbt_mut_resOrdered_sig), var = "gene_symbol")$gene_symbol,
     # K20R = rownames_to_column(as.data.frame(germline_wt_vs_soma_wt_resOrdered_sig), var = "gene_symbol")$gene_symbol)
@@ -1454,9 +1456,38 @@ server <- function(input, output, session){
       theme_void() + scale_fill_gradient(low = "#F4FAFE", high = "#4981BF")
     print(venn_gg)
     
-    #K20A_R <- intersect(K20A_vs_HWT_resOrdered_sig_final.txt$gene_symbol, K20R_vs_HWT_resOrdered_sig_final.txt$gene_symbol)
+    coln <- lapply(venn_list@region$item, function(col){
+      for(i in 1:length(col)){
+        return(paste(length(col),"_genes", sep = ""))
+      }
+    })
     
+    max_length <- 0
+
+    for(i in 1:length(venn_list@region$item)){
+      if(length(venn_list@region$item[[i]]) > max_length){
+        max_length <- length(venn_list@region$item[[i]])
+      }
+    }
     
+    data <- data.frame(matrix(ncol=0,nrow=max_length))
+    for(i in 1:length(venn_list@region$item)){
+      new <- c(venn_list@region$item[[i]],
+               rep(NA, max_length-length(venn_list@region$item[[i]])))
+      data[ , ncol(data) +1] <- new
+      colnames(data)[ncol(data)] <- paste(length(venn_list@region$item[[i]]), "_genes", sep = "")
+    }
+    
+    #This is the table that is 'caught' by the output$venn_table function
+    data_new <<- data[ , colSums(is.na(data)) < nrow(data)]
+  })
+  
+  ## Venn tables
+  output$venn_table <- DT::renderDataTable({
+    
+    #required to get the stupid thing to update :/
+    dummy_variable <- venn_sample_list()
+    DT::datatable(data_new)
   })
   
   ## MA plot
