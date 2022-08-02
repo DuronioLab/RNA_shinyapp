@@ -55,7 +55,7 @@ if(!file.exists("./output_data/dds.rds")){
 print("DESeq2 data imported or generated")
 
 ##Get the sample names
-sample_names <- unique(coldata)
+sample_names <- as.matrix(unique(coldata))
 sample_names <- sample_names[1:length(sample_names)]
 
 if(!exists("choices")){

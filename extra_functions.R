@@ -361,7 +361,6 @@ get_geneID <- function(x, gtf, synonym_table) {
     gtf_genes <- dplyr::filter(gtf, feature=="gene")
   }
   if(grepl("FBgn", x)){
-    #print("You submitted an FBgn")
     return(x)
   }
   
@@ -373,24 +372,18 @@ get_geneID <- function(x, gtf, synonym_table) {
   synonyms <- vector()
   if (length(fbgn_id) == 0) {
     old_gene_name <- x
-    #print(x)
     synonym_index <- grep(old_gene_name, synonym_table$symbol_synonym.s., fixed = TRUE)
-    #print(synonym_index)
     if(length(synonym_index) == 0){
       synonym_index <- grep(old_gene_name, synonym_table$fullname_synonym.s., fixed = TRUE)
-      #print(synonym_index)
     }
     for (j in synonym_index) {
       synonyms <- strsplit(synonym_table[j,"symbol_synonym.s."], ",")[[1]]
-      #print(synonyms)
       if (old_gene_name %in% synonyms) {
         fbgn_id <- synonym_table[j,"primary_FBid"]
-        #print(fbgn_id)
       }
     }
     if(length(synonyms) == 0){
       for (j in synonym_index) {
-        #print("problem area?")
         synonyms <- strsplit(synonym_table[j,"fullname_synonym.s."], ",")[[1]]
         if (old_gene_name %in% synonyms) {
           fbgn_id <- synonym_table[j,"primary_FBid"]
@@ -401,7 +394,33 @@ get_geneID <- function(x, gtf, synonym_table) {
       sss <- NA
     }
   }
-  #print(paste("I found:", fbgn_id, "as the ID for the gene", tmp[grep(fbgn_id, tmp$gene_id), ]$gene_symbol))
   return(fbgn_id)
   
+}
+
+## If you're fairly sure you're using a gene name, this checks all the synonyms
+# and returns the current gene symbol for each gene in a vector
+get_current_symbol <- function(x, synonym_table = current_fb_ids) {
+  
+  #synonym_table <- as.data.frame(synonym_table)
+  
+  #Check if the gtf and gtf_genes have been made/modified. If not, then do so
+  # if(!exists("gtf_genes")){
+  #   gtf$gene_symbol <- GTF.attributes(gtf, "gene_symbol")
+  #   gtf$gene_id <- GTF.attributes(gtf, "gene_id")
+  #   gtf_genes <- dplyr::filter(gtf, feature=="gene")
+  # }
+  gene_vector <- c()
+  
+  for(i in x){
+    if(nrow(synonym_table[which(synonym_table$current_symbol == i), ]) > 0){
+      gene_vector <- c(gene_vector, i)
+    }else{
+      for(j in 1:nrow(synonym_table)){
+        temp_genes <- strsplit(paste(synonym_table[j,1:length(synonym_table)], sep = ",", collapse = ","), split = ",")
+        ifelse(i %in% unlist(temp_genes), gene_vector <- c(gene_vector, synonym_table$current_symbol[j]),"")
+      }
+    }
+  }
+  return(gene_vector)
 }

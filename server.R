@@ -113,7 +113,16 @@ server <- function(input, output, session){
   volcano_fc <- eventReactive(input$volcano_go, {input$fc_n})
   volcano_x <- eventReactive(input$volcano_go, {input$top_n})
   volcano_colors <- eventReactive(input$volcano_go, {input$vc_color_list})
-  volcano_font_size <- eventReactive(input$volcano_go, {input$v_gene_list})
+  volcano_font_size <- eventReactive(input$volcano_go, {input$v_gene_size})
+  #volcano_gene_list <- eventReactive(input$volcano_go, {input$v_gene_list})
+  volcano_gene_list <- eventReactive(input$volcano_go,
+                                     if(length(input$v_gene_list) == 0){
+                                       return(input$v_gene_list)
+                                     }else{
+                                       return(unlist(strsplit(input$v_gene_list, split=", ")))
+                                     })
+  
+  
   volcano_point_size <- eventReactive(input$volcano_go, {input$v_point_size})
   volcano_options <- eventReactive(input$volcano_go, {input$v_checks})
   
@@ -1284,6 +1293,10 @@ server <- function(input, output, session){
       incProgress(0.1, detail = "Calculating plot scale")
       ## calculate axis range based on max values in comparisons
       ranges <- data.frame(xmin = rep(NA, times = length(volcano_samples_data())),xmax = rep(NA, times = length(volcano_samples_data())), ymin = rep(NA, times = length(volcano_samples_data())), ymax = rep(NA, times = length(volcano_samples_data())) )
+      
+      # If given lists to highlight, grab the current names
+      gene_list <<- get_current_symbol(volcano_gene_list())
+      
       for (i in 1:length(volcano_samples_data())) {
         
         # for each comparison, get the DEseq results table
@@ -1296,10 +1309,11 @@ server <- function(input, output, session){
         ranges[i,3:4] <- range(-log10(i_data$padj))
       }
       
-      volcano_list <- list()
-      #j <-2
-      for (i in volcano_samples_data()) {
-        print(length(volcano_samples_data()))
+      #volcano_list<- list()
+      incProgress(0.1, detail = "Making neccessary lists")
+      volcano_list <- lapply(volcano_samples_data(), function(i) {
+      #for (i in volcano_samples_data()) {
+
         # for each comparison, get the DEseq results table
         i_name <- paste(i, "_resOrdered", sep = '')
         i_data <- eval(as.symbol(i_name))
@@ -1328,8 +1342,14 @@ server <- function(input, output, session){
         }
         
         top_hits <- top_hits[order(top_hits$padj),]
-        top_hits <- head(top_hits, volcano_x())
-        
+        #print(rownames(head(top_hits)))
+        #top_hits <- head(top_hits, volcano_x())
+        assign(paste("hits",i,sep="_"),head(top_hits, volcano_x()), envir = .GlobalEnv)
+        #print(get(paste("hits",i,sep="_")))
+        top_hits <- get(paste("hits",i,sep="_"))     
+             
+        gene_hits <<- na.omit(i_data[gene_list, ])
+ 
         incProgress(j/10, detail = "Individual plots")
         j <- j+1
         
@@ -1341,30 +1361,105 @@ server <- function(input, output, session){
         newTitle <- names(titleIndex)
         
         # create volcano plot of differential expression for each comparison
-        volcano <- ggplot(i_data, aes(log2FoldChange, -log10(padj), colour=color_group))
+        # volcano <- ggplot(i_data, aes(log2FoldChange, -log10(padj), colour=color_group))
         
         # copy this later for MA plots!!
         #volcano <- ggplot(i_data, aes(log2FoldChange, baseMean, colour=color_group))
         
-        # Add some formatting to the initial Volcano plot
-        volcano <- volcano +
-          geom_vline(xintercept=0, color = "gray80",size=0.5) +
-          geom_hline(yintercept = 0, color = "gray80", size=0.5) +
-          geom_point(size = volcano_point_size()) +
-          scale_color_manual(values = c("ns" = volcano_c[[1]][3], "sig_up" = volcano_c[[1]][1], "sig_down" = volcano_c[[1]][2])) +
-          labs(title=newTitle) +
-          ylab(expression(-log[10](adjusted~p-value)))+
-          xlab(expression(log[2](Fold~Change))) +
-          ylim(-(0.09 * ymax), ymax + 0.05 * ymax) +
-          xlim((xmin + 0.05 * xmin), (xmax + 0.05 * xmax))
+        # # Add some formatting to the initial Volcano plot
+        # volcano <- volcano +
+        #   geom_vline(xintercept=0, color = "gray80",size=0.5) +
+        #   geom_hline(yintercept = 0, color = "gray80", size=0.5) +
+        #   geom_point(size = volcano_point_size()) +
+        #   scale_color_manual(values = c("ns" = volcano_c[[1]][3], "sig_up" = volcano_c[[1]][1], "sig_down" = volcano_c[[1]][2])) +
+        #   labs(title=newTitle) +
+        #   ylab(expression(-log[10](adjusted~p-value)))+
+        #   xlab(expression(log[2](Fold~Change))) +
+        #   ylim(-(0.09 * ymax), ymax + 0.05 * ymax) +
+        #   xlim((xmin + 0.05 * xmin), (xmax + 0.05 * xmax))
+        pt_size <- volcano_font_size()
         
+        # If the user has chosen to label the top X genes, label them.
+        if(nrow(top_hits) != 0){
+
+
+          volcano <-  ggplot(i_data, aes(log2FoldChange, -log10(padj), colour=color_group))+
+            geom_vline(xintercept=0, color = "gray80",size=0.5) +
+            geom_hline(yintercept = 0, color = "gray80", size=0.5) +
+            geom_point(size = volcano_point_size()) +
+            scale_color_manual(values = c("ns" = volcano_c[[1]][3],
+                                          "sig_up" = volcano_c[[1]][1],
+                                          "sig_down" = volcano_c[[1]][2])) +
+            labs(title=newTitle) +
+            ylab(expression(-log[10](adjusted~p-value)))+
+            xlab(expression(log[2](Fold~Change))) +
+            ylim(-(0.09 * ymax), ymax + 0.05 * ymax) +
+            xlim((xmin + 0.05 * xmin), (xmax + 0.05 * xmax))+
+            geom_text_repel(
+              data = top_hits,
+              aes(label = rownames(top_hits)),
+              color = "grey30",
+              size = pt_size,
+              min.segment.length = 0,
+              max.overlaps = 20,
+              box.padding = unit(0.5, "lines"),
+              max.iter = 3e3,
+              point.padding = unit(0.25, "lines"),
+              force = 2,
+              segment.color = "grey50",
+              show.legend = FALSE
+            )
+        }else if(length(gene_list[] != 0)){
+
+          volcano <-  ggplot(i_data, aes(log2FoldChange, -log10(padj), colour=color_group))+
+            geom_vline(xintercept=0, color = "gray80",size=0.5) +
+            geom_hline(yintercept = 0, color = "gray80", size=0.5) +
+            geom_point(size = volcano_point_size()) +
+            scale_color_manual(values = c("ns" = volcano_c[[1]][3],
+                                          "sig_up" = volcano_c[[1]][1],
+                                          "sig_down" = volcano_c[[1]][2])) +
+            labs(title=newTitle) +
+            ylab(expression(-log[10](adjusted~p-value)))+
+            xlab(expression(log[2](Fold~Change))) +
+            ylim(-(0.09 * ymax), ymax + 0.05 * ymax) +
+            xlim((xmin + 0.05 * xmin), (xmax + 0.05 * xmax))+
+            geom_text_repel(
+              data = gene_hits,
+              aes(label = rownames(gene_hits)),
+              color = "grey30",
+              size = pt_size,
+              min.segment.length = 0,
+              max.overlaps = 20,
+              box.padding = unit(0.5, "lines"),
+              max.iter = 3e3,
+              point.padding = unit(0.25, "lines"),
+              force = 2,
+              segment.color = "grey50",
+              show.legend = FALSE
+            )
+          
+        }else if(nrow(top_hits) == 0 && length(gene_list[]) == 0){
+          volcano <-  ggplot(i_data, aes(log2FoldChange, -log10(padj), colour=color_group))+
+            geom_vline(xintercept=0, color = "gray80",size=0.5) +
+            geom_hline(yintercept = 0, color = "gray80", size=0.5) +
+            geom_point(size = volcano_point_size()) +
+            scale_color_manual(values = c("ns" = volcano_c[[1]][3],
+                                          "sig_up" = volcano_c[[1]][1],
+                                          "sig_down" = volcano_c[[1]][2])) +
+            labs(title=newTitle) +
+            ylab(expression(-log[10](adjusted~p-value)))+
+            xlab(expression(log[2](Fold~Change))) +
+            ylim(-(0.09 * ymax), ymax + 0.05 * ymax) +
+            xlim((xmin + 0.05 * xmin), (xmax + 0.05 * xmax))
+          
+        }
+
         # Change the theme elements of the volcano plot
         volcano <- volcano +
           theme_bw() +
           theme(
             plot.background = element_blank(),
             axis.line = element_line(color = "black", size=1, linetype = "solid")
-            
           )
         
         if(!"grids" %in% volcano_options()){
@@ -1394,27 +1489,13 @@ server <- function(input, output, session){
         #axis.title = element_blank(),
         #axis.text = element_blank()
         
+        assign(paste("volcano_", i, sep = ""), volcano, envir = .GlobalEnv)
+
         
-        # If the user has chosen to label the top X genes, label them.
-        if(length(top_hits[,1]) != 0){
-          volcano <- volcano +
-            geom_text_repel(
-              data = top_hits,
-              aes(label = rownames(top_hits)),
-              color = "grey30",
-              size = v_gene_size(),
-              max.overlaps = 20,
-              box.padding = unit(0.5, "lines"),
-              max.iter = 3e3,
-              point.padding = unit(0.25, "lines"),
-              force = 2,
-              segment.color = "grey50",
-              show.legend = FALSE
-            )
-          
-        }
-        volcano_list[[match(i, volcano_samples_data())]] <- volcano
-      }
+        #volcano_list[[match(i, volcano_samples_data())]] <- get(paste("volcano_", i, sep = ""))
+      })
+      #}
+      
       incProgress(0.80, detail = "Printing plots...")
       volcano_image_out <<- volcano_list
       grid.arrange(grobs = volcano_list)
@@ -1463,7 +1544,7 @@ server <- function(input, output, session){
     })
     
     max_length <- 0
-
+    
     for(i in 1:length(venn_list@region$item)){
       if(length(venn_list@region$item[[i]]) > max_length){
         max_length <- length(venn_list@region$item[[i]])
