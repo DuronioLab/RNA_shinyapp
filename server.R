@@ -290,22 +290,10 @@ server <- function(input, output, session){
   ## Log2 Fold change heatmaps
   output$fc_heatmap <- renderPlot({
     withProgress(message = "Making Log2FC heatmap", value = 0, {
-      # 
-      # fc_heat_comp_data <- eventReactive(input$fc_heat_go, {input$fc_heat_comp})
-      # fc_heat_sample_sort_data <- eventReactive(input$fc_heat_go, {input$fc_heat_sample_sort})
-      # fc_cluster_n_data <- eventReactive(input$fc_heat_go, {input$fc_cluster_n})
-      # fc_heat_method_data <- eventReactive(input$fc_heat_go, {input$fc_heat_method})
-      # fc_sort_sample_list_data <- eventReactive(input$fc_heat_go, {input$fc_sort_sample_list})
-      # fc_heat_diff_only_data <- eventReactive(input$fc_heat_go, {input$fc_heat_diff_only})
-      # fc_heat_sample_list_data <- eventReactive(input$fc_heat_go, {unlist(strsplit(input$fc_heat_sample_list, split=", "))})
-      
       controlComp <<- paste("vs_",fc_heat_comp_data(), sep = "")
       
       plotThese <<- fc_heat_sample_list_data()
-      #plotThese <- plotThese[! plotThese %in% "All"]
-      #plotThese <<- plotThese[! plotThese %in% grep(controlComp, plotThese, value = T)]
-      #if(any(plotThese %in% grep(controlComp, plotThese, value = T))){print("found one")}
-      
+         
       #Select comparisons for specific control
       selected_L2FC_temp <<- select(tibble::column_to_rownames(all_logfc, var = "gene_symbol"), contains(controlComp), )
       if(!any(plotThese %in% grep("All", plotThese, value = T))){
@@ -314,7 +302,6 @@ server <- function(input, output, session){
           selected_L2FC <- selected_L2FC_temp
         }
       }
-      #global_sL2FC0 <<- selected_L2FC
       
       #Keep only significant genes
       selected_L2FC_samples <- colnames(selected_L2FC)
@@ -324,7 +311,6 @@ server <- function(input, output, session){
                                   change_direction = "none")
       
       selected_L2FC <- selected_L2FC[rownames(selected_L2FC) %in% keep_genes,]
-      #global_sL2FC1 <<- selected_L2FC
       
       incProgress(0.2, detail = "Performing clustering")
       #Run clustering
@@ -731,7 +717,7 @@ server <- function(input, output, session){
       ## filter norm_counts to include only genes meeting the selection criteria
       
       #keep_genes <- filter_genes2(samples_list =  cluster_sample_data(),
-      #                           change_direction = direction)
+      #                           chb ange_direction = direction)
       #print(head(keep_genes))
       
       # #norm_counts_clust <- norm_counts[rownames(norm_counts) %in% keep_genes,]
@@ -864,16 +850,6 @@ server <- function(input, output, session){
         GO_bg <<- GO_bg[GO_bg$genes %in% keep_genes,]
       }
     }
-    #chosen <- paste(chosen, sep = "_")
-    #GOList <- na.omit(c(fbgn_diff_genes[chosen]))
-    
-    #eg = bitr(GO_select, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = "org.Dm.eg.db")
-    #ebg = bitr(GO_bg, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = "org.Dm.eg.db")
-    # ggo <- groupGO(gene = eg$ENTREZID,
-    #                OrgDb = org.Dm.eg.db,
-    #                ont = "CC",
-    #                level = 3,
-    #                readable = TRUE)
     
     if(background[1] != "all"){
       ego <- enrichGO(gene = GO_select$genes,
@@ -896,8 +872,6 @@ server <- function(input, output, session){
                       qvalueCutoff = 0.05
       )
     }
-    # }else{
-    #   ego <- data.frame("Please run the heatmap gene ontology first")
     
     ego <- as.data.frame(ego)
     if(nrow(ego) == 0){
@@ -949,20 +923,6 @@ server <- function(input, output, session){
       ## Perform heirarchical clustering
       if (cluster_method_data() == "heirarchical") {
         
-        # ## compute distance matrix
-        # sampleDists <- dist(cluster_data)
-        # #print("Sample distributions calculated")
-        # 
-        # ## perform hierarchecal clustering
-        # hc <- hclust(sampleDists)
-        # #print("Hclust object created")
-        # 
-        # ## extract cluster assignments for each gene
-        # hc.cutree <- cutree(hc, cluster_n_data())
-        # clusters <- data.frame(clusters = as.factor(hc.cutree))
-        # clusters <- tibble::rownames_to_column(clusters, var = "gene_id")
-        # cluster_data$clusters <- clusters$clusters
-        
         cluster_data <- perform_hc(what = "cd", cluster_n = cluster_n_data(), input_counts = norm_counts_clust)
         hc <- perform_hc(what = "hc", cluster_n = cluster_n_data(), input_counts = norm_counts_clust)
       }
@@ -973,12 +933,6 @@ server <- function(input, output, session){
         cluster_data <- perform_kc(what = "cd", cluster_n = cluster_n_data(), input_counts = cluster_data)
         kc <- perform_kc(what = "kc", cluster_n = cluster_n_data(), input_counts = cluster_data) 
         
-        # set.seed(20)
-        # kc <- kmeans(cluster_data, centers=cluster_n_data(), nstart = 1000, iter.max = 20)
-        # kClusters <- as.factor(x = kc$cluster)
-        # clusters <- data.frame(clusters = kClusters)
-        # clusters <- tibble::rownames_to_column(clusters, var = "gene_id")
-        # cluster_data$clusters <- clusters$clusters
       }
       
       ## Get the common names of all the replicates
@@ -1056,15 +1010,15 @@ server <- function(input, output, session){
       goi_count <- as.data.frame(fbgn_counts)
       
       ## Find which columns are needed and select only those as well as only the row of the gene in question
-      test2 <- vector('numeric')
+      sel_col <- vector('numeric')
       
       #for(i in ii){
       for(i in sample_data()){
-        test2[length(test2)+1:length(grep(i, colnames(goi_count)))] <- grep(i, colnames(goi_count))
+        sel_col[length(sel_col)+1:length(grep(i, colnames(goi_count)))] <- grep(i, colnames(goi_count))
       }
       
       goi_count <- dplyr::filter(goi_count, gene_id == goi)
-      goi_count <- dplyr::select(goi_count, test2)
+      goi_count <- dplyr::select(goi_count, sel_col)
       
       ## Replace the column names of each replicate with the "common names"
       for(i in 1:length(repList2)){
@@ -1113,13 +1067,22 @@ server <- function(input, output, session){
   output$fc <- renderPlot({
     fc_list <- list()
     
-    test_fc <<- fc_data()
     for(input_gene in fc_data()){
       
-      goi <- get_geneID(input_gene, gtf, current_fb_ids)
+      goi <- get_current_symbol(input_gene)
+      goi_logfc <- dplyr::filter(all_logfc, gene_symbol == goi)
       
-      ## broken because at some point all_logfc had fbgns in a column called "gene_id"
-      goi_logfc <- dplyr::filter(all_logfc, gene_id == goi)
+      ## If the gene isn't found, make a dummy row with all values of 0
+      zeroLabel <- FALSE
+      if(nrow(goi_logfc) == 0){
+        goi_logfc <- all_logfc[1,]
+        goi_logfc$gene_symbol <- goi
+        zeroLabel <- TRUE
+        for(j in 2:ncol(goi_logfc)){
+          goi_logfc[,j] <- 0
+        }
+      }
+      
       
       temp_fc <- vector('numeric')
       for(i in fc_sample_data()){
@@ -1128,17 +1091,20 @@ server <- function(input, output, session){
       goi_logfc <-dplyr::select(goi_logfc, temp_fc)
       goi_logfc <- tidyr::gather(goi_logfc)
       
-      max_fc = ceiling(max(abs(goi_logfc[2])))
-      min_fc = -max_fc
+      # max_fc = ceiling(max(abs(goi_logfc[2])))
+      # min_fc = -max_fc
       
       ## Make the plot title
       title <- bquote(italic(.(input_gene))~' Log'[2]*' Fold Change')
+      if(zeroLabel){
+        title <- paste(input_gene, "not found", sep = " ")
+      }
       
       ## Make plot x labels
       fc_labels <- list()
       for(i in 1:length(fc_sample_data())){
         pre_label <- unlist(strsplit(fc_sample_data()[i], "_vs_"))
-        fc_labels[[i]] <- bquote(atop(.(pre_label[1])~' vs',.(pre_label[2])))
+        fc_labels[[i]] <- paste(pre_label[1],'vs',pre_label[2], sep = "\n")
       }
       
       ## Plot Log 2 Fold Change
@@ -1146,7 +1112,7 @@ server <- function(input, output, session){
         geom_bar(aes(fill = key), stat = "identity")+
         theme_minimal() +
         labs(title=bquote(.(title)),x="",y=expression('Log'[2]*' Fold Change'))+
-        ylim(c(min_fc, max_fc)) +
+        #ylim(c(min_fc, max_fc)) +
         scale_x_discrete(labels=fc_labels) +
         theme(legend.position="none") +
         theme(plot.title = element_text(hjust = 0.5))
