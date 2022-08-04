@@ -123,12 +123,14 @@ repList2 <- c(unique(repdata2[,1]))
 
 ## Intron annotations for the gene browser
 
-if(!exists("introns")){
-  txdb <- makeTxDbFromGFF("./input_data/dmel-all-r6.20.ucsc.gtf")
-  introns <- intronsByTranscript(txdb)
-  introns <- unlist(introns)
-  introns <- unique(introns)
-}
+## Fix to work with any txdb for genome browser
+
+# if(!exists("introns")){
+#   txdb <- makeTxDbFromGFF(paste("./input_data/",annotation_file, sep = ""))
+#   introns <- intronsByTranscript(txdb)
+#   introns <- unlist(introns)
+#   introns <- unique(introns)
+# }
 print("loaded txdb and intron functions")
 
 # Ensuring that some outputs are saved

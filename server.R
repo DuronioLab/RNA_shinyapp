@@ -295,9 +295,9 @@ server <- function(input, output, session){
       plotThese <<- fc_heat_sample_list_data()
          
       #Select comparisons for specific control
-      selected_L2FC_temp <<- select(tibble::column_to_rownames(all_logfc, var = "gene_symbol"), contains(controlComp), )
+      selected_L2FC_temp <<- dplyr::select(tibble::column_to_rownames(all_logfc, var = "gene_symbol"), contains(controlComp), )
       if(!any(plotThese %in% grep("All", plotThese, value = T))){
-        selected_L2FC <- select(selected_L2FC_temp, contains(plotThese), )
+        selected_L2FC <- dplyr::select(selected_L2FC_temp, contains(plotThese), )
         if(ncol(selected_L2FC) < 2){
           selected_L2FC <- selected_L2FC_temp
         }
@@ -1113,6 +1113,7 @@ server <- function(input, output, session){
         theme_minimal() +
         labs(title=bquote(.(title)),x="",y=expression('Log'[2]*' Fold Change'))+
         #ylim(c(min_fc, max_fc)) +
+        geom_hline(yintercept = 0, color = "black", size=0.75) +
         scale_x_discrete(labels=fc_labels) +
         theme(legend.position="none") +
         theme(plot.title = element_text(hjust = 0.5))
@@ -1349,7 +1350,7 @@ server <- function(input, output, session){
         if(nrow(top_hits) != 0){
 
 
-          volcano <-  ggplot(i_data, aes(log2FoldChange, -log10(padj), colour=color_group))+
+          volcano <-  ggplot(arrange(i_data, color_group), aes(log2FoldChange, -log10(padj), colour=color_group))+
             geom_vline(xintercept=0, color = "gray80",size=0.5) +
             geom_hline(yintercept = 0, color = "gray80", size=0.5) +
             geom_point(size = volcano_point_size()) +
@@ -1377,7 +1378,7 @@ server <- function(input, output, session){
             )
         }else if(length(gene_list[] != 0)){
 
-          volcano <-  ggplot(i_data, aes(log2FoldChange, -log10(padj), colour=color_group))+
+          volcano <-  ggplot(arrange(i_data, color_group), aes(log2FoldChange, -log10(padj), colour=color_group))+
             geom_vline(xintercept=0, color = "gray80",size=0.5) +
             geom_hline(yintercept = 0, color = "gray80", size=0.5) +
             geom_point(size = volcano_point_size()) +
@@ -1405,7 +1406,7 @@ server <- function(input, output, session){
             )
           
         }else if(nrow(top_hits) == 0 && length(gene_list[]) == 0){
-          volcano <-  ggplot(i_data, aes(log2FoldChange, -log10(padj), colour=color_group))+
+          volcano <-  ggplot(arrange(i_data, color_group), aes(log2FoldChange, -log10(padj), colour=color_group))+
             geom_vline(xintercept=0, color = "gray80",size=0.5) +
             geom_hline(yintercept = 0, color = "gray80", size=0.5) +
             geom_point(size = volcano_point_size()) +
@@ -1610,7 +1611,9 @@ server <- function(input, output, session){
         
         xmin <- min(ranges$xmin)
         xmax <- max(ranges$xmax)
-        ymax <-max(ranges$ymax)
+        ymax <-log2(max(ranges$ymax))
+        ymin <- log2(min(ranges$ymin))
+        print(ymin)
         
         titleIndex <- which(choices[] == i)
         newTitle <- names(titleIndex)
@@ -1618,8 +1621,11 @@ server <- function(input, output, session){
         # create volcano plot of differential expression for each comparison
         #volcano <- ggplot(i_data, aes(log2FoldChange, -log10(padj), colour=color_group))
         
+        #print(head(max(i_data$baseMean)))
+        
         # copy this later for MA plots!!
-        ma <- ggplot(i_data, aes(log2FoldChange, baseMean, colour=color_group))
+        ma <- ggplot(arrange(i_data, color_group), aes(log2FoldChange, log2(baseMean), colour=color_group))
+        saved_ma <<- i_data
         
         # Add some formatting to the initial ma plot
         ma <- ma +
@@ -1629,8 +1635,9 @@ server <- function(input, output, session){
           scale_color_manual(values = c("ns" = ma_c[[1]][3], "sig_up" = ma_c[[1]][1], "sig_down" = ma_c[[1]][2])) +
           labs(title=newTitle) +
           xlab(expression(log[2](Fold~Change)))+
-          ylab("mean read depth") +
-          ylim(-(0.09 * ymax), ymax + 0.05 * ymax) +
+          ylab(expression(log[2](Mean~Read~Depth)))+
+          #ylab("mean read depth") +
+          ylim(ymin, ymax + 0.05 * ymax) +
           xlim((xmin + 0.05 * xmin), (xmax + 0.05 * xmax)) +
           coord_flip()
         
@@ -1717,15 +1724,15 @@ server <- function(input, output, session){
         trackType <- c(track_type_data())
       }
       
-      fileList = c("./input_data/CRY_10_1_S3_filtered_sorted.bam",
-                   "./input_data/WT_10_1_S1_filtered_sorted.bam",
-                   "./input_data/CRY_12_3_S7_filtered_sorted.bam",
-                   "./input_data/WT_12_3_S3_filtered_sorted.bam",
-                   "./input_data/CRY_13_3_S15_filtered_sorted.bam",
-                   "./input_data/WT_13_3_S13_filtered_sorted.bam",
-                   "./input_data/CRY_14_1_S5_filtered_sorted.bam",
-                   "./input_data/WT_14_1_S1_filtered_sorted.bam",
-                   "./input_data/CRY_NL_1_S9_filtered_sorted.bam")
+      # fileList = c("./input_data/CRY_10_1_S3_filtered_sorted.bam",
+      #              "./input_data/WT_10_1_S1_filtered_sorted.bam",
+      #              "./input_data/CRY_12_3_S7_filtered_sorted.bam",
+      #              "./input_data/WT_12_3_S3_filtered_sorted.bam",
+      #              "./input_data/CRY_13_3_S15_filtered_sorted.bam",
+      #              "./input_data/WT_13_3_S13_filtered_sorted.bam",
+      #              "./input_data/CRY_14_1_S5_filtered_sorted.bam",
+      #              "./input_data/WT_14_1_S1_filtered_sorted.bam",
+      #              "./input_data/CRY_NL_1_S9_filtered_sorted.bam")
       
       
       #take GTF and subset just the genes (with useful positional info) and subset intron/exon lists for each gene

@@ -3,7 +3,7 @@ setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 ## import the sample sheet output by snakemake pipeline
 if(!exists("sample_table")){
-  sample_table <- read.table("./input_data/sampleSheet.tsv", sep= "\t", header=TRUE)
+  sample_table <- read.table(paste("./input_data/", samples_file, sep = ""), sep= "\t", header=TRUE)
 }
 print("Sample sheet imported.")
 
@@ -12,23 +12,26 @@ print("Sample sheet imported.")
 
 
 ## import count table and remove the first 5 columns that contain annotation information, leaving only the read counts
-if(!exists("count_table")){
-  count_table <- readr::read_tsv("./input_data/featureCounts.txt", comment="#")
+#if(!exists("count_table")){
+  count_table <- readr::read_tsv(paste("./input_data/", counts_file, sep = ""), comment="#")
   count_table <- count_table %>% tibble::column_to_rownames("Geneid")
   gene_counts <- as.matrix(count_table[,6:ncol(count_table)])
-  colnames(gene_counts) <- sub("_dm6.*", "", colnames(gene_counts))
+  colnames(gene_counts) <- sub("_Aligned.*", "", colnames(gene_counts))
+  
+  
+  ##Warning: might not work! It should but I've been having issues with it dropping info
+  sample_table <- sample_table[order(sample_table$baseName),, drop = FALSE]
+  #coldata <- coldata[ order(row.names(coldata)),, drop = FALSE]
+  gene_counts <- gene_counts[ , order(colnames(gene_counts)), drop = FALSE]
+  
   
   ## generate a data frame with information about each sample
   coldata <- as.matrix(sample_table$sample)
   coldata <- data.frame(sample_table$sample)
   rownames(coldata) <- sample_table$bam
   colnames(coldata) <- c("sample")
-}
+#}
 print("Count data imported.")
-
-##Warning: might not work! It should but I've been having issues with it dropping info
-coldata <- coldata[ order(row.names(coldata)),, drop = FALSE]
-gene_counts <- gene_counts[ , order(colnames(gene_counts)), drop = FALSE]
 
 
 ## Perform DESeq2 analysis and save if not already created
@@ -163,8 +166,8 @@ print("DE gene tables summarized.")
 ## import dm6 GTF file and add columns for gene_symbol and gene_ID
 
 if(!exists("gtf_genes")){
-  gtf_fn <- "./input_data/dmel-all-r6.20.ucsc.gtf"
-  gtf <- readGTF(gtf_fn)
+  #gtf_fn <- "./input_data/dmel-all-r6.20.ucsc.gtf"
+  gtf <- readGTF(paste("./input_data/",annotation_file, sep = ""))
   gtf$gene_symbol <- GTF.attributes(gtf, "gene_symbol")
   gtf$gene_id <- GTF.attributes(gtf, "gene_id")
   gtf_genes <- dplyr::filter(gtf, feature=="gene")
@@ -176,7 +179,7 @@ print("GTF object loaded")
 
 if(!exists("current_fb_ids")){
   #current_fb_ids <- read.table("./input_data/fb_synonym_fb_2021_03.tsv", sep="\t", as.is = TRUE,header = TRUE, quote = "", comment.char = "", skip = 5)
-  suppressWarnings(current_fb_ids <- readr::read_tsv("./input_data/fb_synonym_fb_2021_03.tsv", skip = 5, quote = "", col_names = TRUE))
+  suppressWarnings(current_fb_ids <- readr::read_tsv(paste("./input_data/",synonym_file,sep = ""), skip = 5, quote = "", col_names = TRUE))
   current_fb_ids <- current_fb_ids %>% rename(primary_FBid = "##primary_FBid")
   current_fb_ids <- current_fb_ids %>% rename(fullname_synonym.s. = 'fullname_synonym(s)')
   current_fb_ids <- current_fb_ids %>% rename(symbol_synonym.s. = 'symbol_synonym(s)')
